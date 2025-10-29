@@ -1,7 +1,16 @@
 {
   "permissions": {
     "allow": [
-      "Bash(tree -L 3 -I 'venv|__pycache__|*.pyc|.git')"
+      "Bash(python -m pytest backend/tests/unit/test_executor.py -v)",
+      "Bash(python -m pytest tests/unit/test_executor.py -v --no-cov)",
+      "Bash(python -m pytest tests/unit/test_executor.py -v -o addopts=\"\")",
+      "Bash(pip install pytest-asyncio)",
+      "Bash(playwright install chromium --with-deps)",
+      "Bash(playwright --version)",
+      "Bash(python test_saucedemo.py)",
+      "Bash(python -m pytest tests/unit/test_discovery_role_name.py -v -o addopts=\"\")",
+      "Bash(python -m pytest tests/unit -k \"discovery or planner\" -v -o addopts=\"\")",
+      "Bash(python test_saucedemo_headed.py)"
     ],
     "deny": [],
     "ask": []

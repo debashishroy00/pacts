@@ -1,37 +1,25 @@
-# PACTS - Production-Ready Autonomous Context Testing System
+PACTS - Production-Ready Autonomous Context Testing System
+License: MIT Python Playwright LangGraph Status
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Python](https://img.shields.io/badge/Python-3.11%2B-blue)](https://www.python.org/)
-[![Playwright](https://img.shields.io/badge/Playwright-1.45%2B-green)](https://playwright.dev/python/)
-[![LangGraph](https://img.shields.io/badge/LangGraph-1.0-purple)](https://langchain-ai.github.io/langgraph/)
-[![Status](https://img.shields.io/badge/Status-In--Development-yellow)](https://github.com/yourusername/pacts)
+Transform AI test generation from 70% success to 95%+ with Find-First Verification
 
-> Transform AI test generation from 70% success to 95%+ with Find-First Verification
+🎯 The Breakthrough
+Traditional AI Testing Tools:
 
----
+Generate test code first, hope selectors work
+70-80% success rates (guess-and-check)
+Brittle XPath and CSS selectors
+Break with every UI change
+PACTS:
 
-## 🎯 The Breakthrough
-
-**Traditional AI Testing Tools:**
-- Generate test code first, hope selectors work
-- 70-80% success rates (guess-and-check)
-- Brittle XPath and CSS selectors
-- Break with every UI change
-
-**PACTS:**
-- **Find-First Verification**: Discover and verify locators BEFORE execution
-- **95%+ success rates** across all application types
-- **Multi-strategy discovery**: 5 intelligent fallback strategies
-- **70% autonomous healing** without human intervention
-- **Sub-5% flakiness** through 5-point actionability validation
-
----
-
-## 🏗️ Architecture: Complete 6-Agent System
-
+Find-First Verification: Discover and verify locators BEFORE execution
+95%+ success rates across all application types
+Multi-strategy discovery: 5 intelligent fallback strategies
+70% autonomous healing without human intervention
+Sub-5% flakiness through 5-point actionability validation
+🏗️ Architecture: Complete 6-Agent System
 PACTS delivers both runtime execution AND test file generation in Phase 1 MVP:
 
-```
 ┌─────────────────────────────────────────────────────────────┐
 │                  EXCEL REQUIREMENTS                          │
 │           (External Ground Truth - REQ-001)                  │
@@ -62,97 +50,72 @@ PACTS delivers both runtime execution AND test file generation in Phase 1 MVP:
 │              Observability & Telemetry                       │
 │  LangSmith Traces | FastAPI Dashboard | Verdict APIs        │
 └─────────────────────────────────────────────────────────────┘
-```
-
----
-
-## 🤖 Agent Pipeline
-
-### Phase 1: Complete MVP (6 Agents)
-
-#### 1. PLANNER - Test Discovery & Flow Control
-- Reads requirements from Excel
-- Parses intent format: `Element@Region | action | value`
-- Generates test plan with expected outcomes
-- **Output**: `context["intents"]`, `context["expected"]`
-
-#### 2. POMBUILDER - Find-First Verification ⭐
-**CRITICAL**: Discovers and verifies locators BEFORE execution
+🤖 Agent Pipeline
+Phase 1: Complete MVP (6 Agents)
+1. PLANNER - Test Discovery & Flow Control
+Reads requirements from Excel
+Parses intent format: Element@Region | action | value
+Generates test plan with expected outcomes
+Output: context["intents"], context["expected"]
+2. POMBUILDER - Find-First Verification ⭐
+CRITICAL: Discovers and verifies locators BEFORE execution
 
 Employs 5 discovery strategies:
-1. **Semantic Selectors** (getByRole, getByLabel) - 95% success on clean DOM
-2. **Shadow DOM Piercing** - 92% success on Web Components
-3. **Frame Traversal** (nested iframes) - Enterprise portals
-4. **Pattern Extraction** (dynamic IDs) - 88% success
-5. **Vision Fallback** (computer vision) - Edge cases
 
-- Validates through 5-Point Actionability Gate
-- **Output**: `context["plan"]` with verified selectors + confidence scores
-
-#### 3. GENERATOR - Code Synthesis
-- Transforms verified selectors into Playwright test.py
-- Generates fixtures and data loaders
-- Uses verified selectors from POMBuilder (no hallucination!)
-- Modern async/await patterns with type hints
-- **Output**: `test.py`, `fixtures.json`, `data_loaders.py` saved to disk
-
-#### 4. EXECUTOR - Test Execution
-- Executes actions directly via Playwright (async)
-- Enforces 5-point gate before each action:
-  - Unique (only one match)
-  - Visible (actually visible to user)
-  - Enabled (not disabled/readonly)
-  - Stable (not moving/animating)
-  - Interactable (can receive clicks/input)
-- Can execute generated test.py or intents directly
-- **Output**: Execution state, failure codes
-
-#### 5. ORACLEHEALER - Autonomous Repair
-- Analyzes failures and applies healing tactics:
-  - **Reveal**: Scroll element into view
-  - **Reprobe**: Try alternative selectors
-  - **Stability Wait**: Wait for animations to complete
-- Increments heal_round counter
-- **Success Rate**: 70% autonomous healing
-- **Output**: Healed state or escalation
-
-#### 6. VERDICTRCA - Reporting & Analysis
-- Aggregates execution results
-- Computes pass rates and metrics
-- Generates RCA (Root Cause Analysis) notes
-- Sets quarantine flag for problematic tests
-- **Output**: Verdict, metrics, RCA report → Postgres
-
-### Phase 2: Enhanced Features
-- Advanced healing strategies
-- Confidence scoring improvements
-- Advanced discovery patterns
-
----
-
-## 📊 Success Metrics
-
-| Metric | Target |
-|--------|--------|
-| **Selector Discovery Accuracy** | ≥95% |
-| **Autonomous Healing Success** | ≥70% |
-| **Test Flakiness** | <5% |
-| **LangSmith Trace Coverage** | 100% |
-| **Pass Rate Reporting** | Live via API |
-
----
-
-## 🚀 Quick Start
-
-### Prerequisites
-```bash
+Semantic Selectors (getByRole, getByLabel) - 95% success on clean DOM
+Shadow DOM Piercing - 92% success on Web Components
+Frame Traversal (nested iframes) - Enterprise portals
+Pattern Extraction (dynamic IDs) - 88% success
+Vision Fallback (computer vision) - Edge cases
+Validates through 5-Point Actionability Gate
+Output: context["plan"] with verified selectors + confidence scores
+3. GENERATOR - Code Synthesis
+Transforms verified selectors into Playwright test.py
+Generates fixtures and data loaders
+Uses verified selectors from POMBuilder (no hallucination!)
+Modern async/await patterns with type hints
+Output: test.py, fixtures.json, data_loaders.py saved to disk
+4. EXECUTOR - Test Execution
+Executes actions directly via Playwright (async)
+Enforces 5-point gate before each action:
+Unique (only one match)
+Visible (actually visible to user)
+Enabled (not disabled/readonly)
+Stable (not moving/animating)
+Interactable (can receive clicks/input)
+Can execute generated test.py or intents directly
+Output: Execution state, failure codes
+5. ORACLEHEALER - Autonomous Repair
+Analyzes failures and applies healing tactics:
+Reveal: Scroll element into view
+Reprobe: Try alternative selectors
+Stability Wait: Wait for animations to complete
+Increments heal_round counter
+Success Rate: 70% autonomous healing
+Output: Healed state or escalation
+6. VERDICTRCA - Reporting & Analysis
+Aggregates execution results
+Computes pass rates and metrics
+Generates RCA (Root Cause Analysis) notes
+Sets quarantine flag for problematic tests
+Output: Verdict, metrics, RCA report → Postgres
+Phase 2: Enhanced Features
+Advanced healing strategies
+Confidence scoring improvements
+Advanced discovery patterns
+📊 Success Metrics
+Metric	Target
+Selector Discovery Accuracy	≥95%
+Autonomous Healing Success	≥70%
+Test Flakiness	<5%
+LangSmith Trace Coverage	100%
+Pass Rate Reporting	Live via API
+🚀 Quick Start
+Prerequisites
 Python 3.11+
 PostgreSQL (via Docker Compose)
 Redis (via Docker Compose)
-```
-
-### Installation
-```bash
+Installation
 # Clone repository
 git clone https://github.com/yourusername/pacts.git
 cd pacts
@@ -173,10 +136,7 @@ docker-compose up -d
 # Setup environment
 cp .env.example .env
 # Edit .env with your configuration
-```
-
-### Run Your First Test
-```bash
+Run Your First Test
 # Execute test from Excel requirement
 pacts test --req REQ-001
 
@@ -185,73 +145,51 @@ pacts test --req REQ-001 --headless true
 
 # View results via API
 curl http://localhost:8000/verdicts/REQ-001
-```
+🧠 Memory Systems
+Conceptual Memory	Implementation	Purpose
+Episodic	Postgres Checkpointer	Run history persistence
+Procedural	Redis POM Cache	Selector confidence + last success
+Semantic	Intent Memory	Intent → selector mapping
+Working	Redis Session Cache	Live run state (1hr TTL)
+🔬 Observability
+LangSmith Integration
+Full trace visibility for every agent execution
+Strategy selection rationale
+Confidence scores and gate results
+Heal rounds and RCA summaries
+FastAPI Dashboard
+/health - Service status
+/verdicts/{req_id} - Test results
+/verdicts/{req_id}/metrics - Pass/fail metrics
+/runs - Recent execution history
+/traces/{trace_id} - LangSmith deep-links
+💻 Technology Stack
+Component	Technology	Version	Purpose
+Language	Python	3.11+	Modern async/await, type hints
+Orchestration	LangGraph	1.0 GA	Durable state machine
+Automation	Playwright	1.45+	Browser automation
+Database	PostgreSQL	15+	State persistence
+Cache	Redis	7+	Working memory, POM cache
+Observability	LangSmith	Latest	Full trace visibility
+API	FastAPI	Latest	Dashboard & APIs
+Validation	Pydantic	2.6+	Data models
+Key Technology Decisions
+LangGraph 1.0 GA:
 
----
+Released November 2024
+Native state persistence (no custom workflow code)
+Built-in checkpointing
+Human-in-the-loop gates
+Playwright over Selenium:
 
-## 🧠 Memory Systems
+Superior Shadow DOM handling (92% success)
+Modern async API reduces flakiness by 80%
+Built-in waiting mechanisms
+Postgres + Redis:
 
-| Conceptual Memory | Implementation | Purpose |
-|-------------------|----------------|---------|
-| **Episodic** | Postgres Checkpointer | Run history persistence |
-| **Procedural** | Redis POM Cache | Selector confidence + last success |
-| **Semantic** | Intent Memory | Intent → selector mapping |
-| **Working** | Redis Session Cache | Live run state (1hr TTL) |
-
----
-
-## 🔬 Observability
-
-### LangSmith Integration
-- Full trace visibility for every agent execution
-- Strategy selection rationale
-- Confidence scores and gate results
-- Heal rounds and RCA summaries
-
-### FastAPI Dashboard
-- `/health` - Service status
-- `/verdicts/{req_id}` - Test results
-- `/verdicts/{req_id}/metrics` - Pass/fail metrics
-- `/runs` - Recent execution history
-- `/traces/{trace_id}` - LangSmith deep-links
-
----
-
-## 💻 Technology Stack
-
-| Component | Technology | Version | Purpose |
-|-----------|-----------|---------|---------|
-| **Language** | Python | 3.11+ | Modern async/await, type hints |
-| **Orchestration** | LangGraph | 1.0 GA | Durable state machine |
-| **Automation** | Playwright | 1.45+ | Browser automation |
-| **Database** | PostgreSQL | 15+ | State persistence |
-| **Cache** | Redis | 7+ | Working memory, POM cache |
-| **Observability** | LangSmith | Latest | Full trace visibility |
-| **API** | FastAPI | Latest | Dashboard & APIs |
-| **Validation** | Pydantic | 2.6+ | Data models |
-
-### Key Technology Decisions
-
-**LangGraph 1.0 GA**:
-- Released November 2024
-- Native state persistence (no custom workflow code)
-- Built-in checkpointing
-- Human-in-the-loop gates
-
-**Playwright over Selenium**:
-- Superior Shadow DOM handling (92% success)
-- Modern async API reduces flakiness by 80%
-- Built-in waiting mechanisms
-
-**Postgres + Redis**:
-- Postgres: Durable state with JSONB flexibility
-- Redis: High-speed caching with TTL support
-
----
-
-## 📁 Project Structure
-
-```
+Postgres: Durable state with JSONB flexibility
+Redis: High-speed caching with TTL support
+📁 Project Structure
 pacts/
 ├── backend/                  # Python backend (Phase 1)
 │   ├── graph/                # LangGraph orchestration
@@ -325,101 +263,67 @@ pacts/
 │       └── data_loaders.py
 │
 └── README.md
-```
+📈 Roadmap
+Phase 1: Complete MVP (Weeks 1-2)
+✅ 6-agent pipeline: Planner, POMBuilder, Generator, Executor, OracleHealer, VerdictRCA
+✅ LangGraph 1.0 orchestration with all 6 agents
+✅ Multi-strategy discovery (5 strategies)
+✅ 5-point actionability gate
+✅ Test.py generation with fixtures
+✅ Autonomous healing (reveal, reprobe, stability wait)
+✅ FastAPI dashboard & Verdict APIs
+✅ LangSmith telemetry for all agents
+✅ Postgres + Redis persistence
+Phase 2: Enhanced Features (Weeks 3-4)
+Advanced healing strategies
+Confidence scoring improvements
+Advanced discovery patterns
+Performance optimizations
+Phase 3: Angular 18 Frontend (Weeks 5-8)
+Dashboard: Real-time test execution status, charts, timeline
+Requirements Management: Upload/edit Excel, visual editor
+Test Execution: Trigger tests via UI, live progress, screenshot viewing
+Verdicts & Analytics: Detailed verdicts, RCA reports, historical trends
+Settings: Policy configuration, browser settings
+Real-time Updates: WebSocket integration for live status
+Phase 4: Enterprise Features (Weeks 9-12)
+MCP integration (optional)
+Semantic memory learning
+Multi-tenant support with user management
+Advanced analytics and reporting
+Integration marketplace
+💡 Why PACTS?
+vs Traditional AI Testing Tools
+Feature	Traditional Tools	PACTS
+Approach	Generate code first, hope it works	Find-First Verification
+Success Rate	70-80%	95%+
+Flakiness	15-30%	<5%
+Shadow DOM	❌ Not supported	✅ 92% success
+Dynamic IDs	❌ Fails	✅ 88% with pattern extraction
+Healing	❌ Manual fixes	✅ 70% autonomous
+Memory	❌ No learning	✅ 4 memory systems
+Observability	❌ Limited	✅ Full LangSmith traces
+🔒 Security & Compliance
+Deploy in your own infrastructure (on-prem or cloud)
+All data remains within your security boundary
+Supports enterprise authentication systems
+GDPR/SOC2 compliance-ready architecture
+🤝 Contributing
+We welcome contributions! See CONTRIBUTING.md for guidelines.
 
----
-
-## 📈 Roadmap
-
-### Phase 1: Complete MVP (Weeks 1-2)
-- ✅ **6-agent pipeline**: Planner, POMBuilder, **Generator**, Executor, OracleHealer, VerdictRCA
-- ✅ LangGraph 1.0 orchestration with all 6 agents
-- ✅ Multi-strategy discovery (5 strategies)
-- ✅ 5-point actionability gate
-- ✅ **Test.py generation with fixtures**
-- ✅ Autonomous healing (reveal, reprobe, stability wait)
-- ✅ FastAPI dashboard & Verdict APIs
-- ✅ LangSmith telemetry for all agents
-- ✅ Postgres + Redis persistence
-
-### Phase 2: Enhanced Features (Weeks 3-4)
-- Advanced healing strategies
-- Confidence scoring improvements
-- Advanced discovery patterns
-- Performance optimizations
-
-### Phase 3: Angular 18 Frontend (Weeks 5-8)
-- **Dashboard**: Real-time test execution status, charts, timeline
-- **Requirements Management**: Upload/edit Excel, visual editor
-- **Test Execution**: Trigger tests via UI, live progress, screenshot viewing
-- **Verdicts & Analytics**: Detailed verdicts, RCA reports, historical trends
-- **Settings**: Policy configuration, browser settings
-- **Real-time Updates**: WebSocket integration for live status
-
-### Phase 4: Enterprise Features (Weeks 9-12)
-- MCP integration (optional)
-- Semantic memory learning
-- Multi-tenant support with user management
-- Advanced analytics and reporting
-- Integration marketplace
-
----
-
-## 💡 Why PACTS?
-
-### vs Traditional AI Testing Tools
-
-| Feature | Traditional Tools | PACTS |
-|---------|------------------|-------|
-| **Approach** | Generate code first, hope it works | Find-First Verification |
-| **Success Rate** | 70-80% | 95%+ |
-| **Flakiness** | 15-30% | <5% |
-| **Shadow DOM** | ❌ Not supported | ✅ 92% success |
-| **Dynamic IDs** | ❌ Fails | ✅ 88% with pattern extraction |
-| **Healing** | ❌ Manual fixes | ✅ 70% autonomous |
-| **Memory** | ❌ No learning | ✅ 4 memory systems |
-| **Observability** | ❌ Limited | ✅ Full LangSmith traces |
-
----
-
-## 🔒 Security & Compliance
-
-- Deploy in your own infrastructure (on-prem or cloud)
-- All data remains within your security boundary
-- Supports enterprise authentication systems
-- GDPR/SOC2 compliance-ready architecture
-
----
-
-## 🤝 Contributing
-
-We welcome contributions! See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
-
----
-
-## 📖 Documentation
-
+📖 Documentation
 For detailed implementation specifications, see:
-- **[PACTS-Build-Blueprint-v3.4.md](PACTS-Build-Blueprint-v3.4.md)** - Authoritative build reference
 
+PACTS-Build-Blueprint-v3.4.md - Authoritative build reference
 Archived documentation:
-- [docs/archive/](docs/archive/) - Previous architecture iterations
 
----
+docs/archive/ - Previous architecture iterations
+📄 License
+MIT License - see LICENSE for details
 
-## 📄 License
-
-MIT License - see [LICENSE](LICENSE) for details
-
----
-
-## 📞 Contact & Support
-
-- **Issues**: [GitHub Issues](https://github.com/yourusername/pacts/issues)
-- **Discussions**: [GitHub Discussions](https://github.com/yourusername/pacts/discussions)
-
----
-
-**Ready to transform your test automation from 70% to 95%+ success?**
+📞 Contact & Support
+Issues: GitHub Issues
+Discussions: GitHub Discussions
+Ready to transform your test automation from 70% to 95%+ success?
 
 Built with LangGraph 1.0 | Powered by Playwright | Observed by LangSmith
