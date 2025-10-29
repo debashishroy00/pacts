@@ -1,13 +1,14 @@
-<<<<<<< HEAD
 # PACTS - Production-Ready Autonomous Context Testing System
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Python](https://img.shields.io/badge/Python-3.11%2B-blue)](https://www.python.org/)
-[![Playwright](https://img.shields.io/badge/Playwright-1.40%2B-green)](https://playwright.dev/python/)
+[![Playwright](https://img.shields.io/badge/Playwright-1.45%2B-green)](https://playwright.dev/python/)
 [![LangGraph](https://img.shields.io/badge/LangGraph-1.0-purple)](https://langchain-ai.github.io/langgraph/)
-[![Status](https://img.shields.io/badge/Status-Production--Ready-brightgreen)](https://github.com/yourusername/pacts)
+[![Status](https://img.shields.io/badge/Status-In--Development-yellow)](https://github.com/yourusername/pacts)
 
 > Transform AI test generation from 70% success to 95%+ with Find-First Verification
+
+---
 
 ## 🎯 The Breakthrough
 
@@ -18,115 +19,136 @@
 - Break with every UI change
 
 **PACTS:**
-- **Find-First Verification**: Discover and verify locators BEFORE generating code
+- **Find-First Verification**: Discover and verify locators BEFORE execution
 - **95%+ success rates** across all application types
-- **Multi-strategy discovery**: 5 intelligent fallback chains
+- **Multi-strategy discovery**: 5 intelligent fallback strategies
 - **70% autonomous healing** without human intervention
-- **Sub-5% flakiness** through actionability validation
+- **Sub-5% flakiness** through 5-point actionability validation
 
-## 🏗️ Architecture: Five Layers for Enterprise Scale
+---
+
+## 🏗️ Architecture: Complete 6-Agent System
+
+PACTS delivers both runtime execution AND test file generation in Phase 1 MVP:
 
 ```
-==============================================================
-  Layer 1: Input Sources
-  Excel Requirements Registry | Natural Language | REST API
-==============================================================
-                         |
-                         v
-==============================================================
-  Layer 2: LangGraph 1.0 Orchestration
-  Five-Agent State Machine with Durable Persistence
-  Planner -> POMBuilder -> Generator -> Executor -> OracleHealer
-==============================================================
-                         |
-                         v
-==============================================================
-  Layer 3: Runtime & Locator Intelligence
-  - Multi-Strategy Discovery (5 intelligent strategies)
-  - 5-Point Actionability Gate
-  - MCP Playwright + Anchor Browser
-==============================================================
-                         |
-                         v
-==============================================================
-  Layer 4: Memory Systems
-  Episodic | Semantic | Procedural | Working Memory
-==============================================================
-                         |
-                         v
-==============================================================
-  Layer 5: Observability & Learning
-  LangSmith Traces | One-Click Replay | Telemetry Loop
-==============================================================
+┌─────────────────────────────────────────────────────────────┐
+│                  EXCEL REQUIREMENTS                          │
+│           (External Ground Truth - REQ-001)                  │
+└─────────────────────────────────────────────────────────────┘
+                            ↓
+┌─────────────────────────────────────────────────────────────┐
+│              LangGraph 1.0 Orchestration                     │
+│              6-Agent State Machine (Phase 1)                 │
+│                                                              │
+│  Planner → POMBuilder → Generator → Executor → OracleHealer │
+│                           ↓                        ↓         │
+│                       test.py                  VerdictRCA    │
+└─────────────────────────────────────────────────────────────┘
+                            ↓
+┌─────────────────────────────────────────────────────────────┐
+│              Runtime & Policy Layer                          │
+│  - Multi-Strategy Discovery (5 intelligent strategies)       │
+│  - 5-Point Actionability Gate                               │
+│  - Direct Playwright Execution                              │
+└─────────────────────────────────────────────────────────────┘
+                            ↓
+┌─────────────────────────────────────────────────────────────┐
+│              Memory Systems                                  │
+│  Postgres Checkpointer | Redis POM Cache | Intent Memory    │
+└─────────────────────────────────────────────────────────────┘
+                            ↓
+┌─────────────────────────────────────────────────────────────┐
+│              Observability & Telemetry                       │
+│  LangSmith Traces | FastAPI Dashboard | Verdict APIs        │
+└─────────────────────────────────────────────────────────────┘
 ```
 
-## 🤖 Five-Agent Pipeline
+---
 
-### 1. PLANNER - Test Discovery & Flow Control
-- Reads requirements from Excel/NL/API
-- Queries Memory for similar patterns
-- Generates `plan.json` with test scenarios
-- **Output**: Test plan with data bindings and retry policies
+## 🤖 Agent Pipeline
 
-### 2. POMBUILDER - Find-First Verification ⭐
-**CRITICAL**: Discovers and verifies locators BEFORE code generation
+### Phase 1: Complete MVP (6 Agents)
+
+#### 1. PLANNER - Test Discovery & Flow Control
+- Reads requirements from Excel
+- Parses intent format: `Element@Region | action | value`
+- Generates test plan with expected outcomes
+- **Output**: `context["intents"]`, `context["expected"]`
+
+#### 2. POMBUILDER - Find-First Verification ⭐
+**CRITICAL**: Discovers and verifies locators BEFORE execution
 
 Employs 5 discovery strategies:
 1. **Semantic Selectors** (getByRole, getByLabel) - 95% success on clean DOM
-2. **Shadow DOM Piercing** (CDP Protocol) - 92% success on Web Components
+2. **Shadow DOM Piercing** - 92% success on Web Components
 3. **Frame Traversal** (nested iframes) - Enterprise portals
 4. **Pattern Extraction** (dynamic IDs) - 88% success
 5. **Vision Fallback** (computer vision) - Edge cases
 
 - Validates through 5-Point Actionability Gate
-- **Output**: `form.json` with verified selectors + fallback chains
+- **Output**: `context["plan"]` with verified selectors + confidence scores
 
-### 3. GENERATOR - Code Synthesis
-- Generates Playwright Python tests with **verified selectors**
-- Uses modern async/await patterns
-- Creates fixtures and data loaders
-- **Output**: `test.py` with type hints and best practices
+#### 3. GENERATOR - Code Synthesis
+- Transforms verified selectors into Playwright test.py
+- Generates fixtures and data loaders
+- Uses verified selectors from POMBuilder (no hallucination!)
+- Modern async/await patterns with type hints
+- **Output**: `test.py`, `fixtures.json`, `data_loaders.py` saved to disk
 
-### 4. EXECUTOR - Test Execution
-- Runs tests in target browsers
-- Captures comprehensive diagnostics:
-  - Screenshots, videos, traces
-  - Console logs, network activity
-  - Performance metrics
-- **Output**: `run.report.json` with detailed results
+#### 4. EXECUTOR - Test Execution
+- Executes actions directly via Playwright (async)
+- Enforces 5-point gate before each action:
+  - Unique (only one match)
+  - Visible (actually visible to user)
+  - Enabled (not disabled/readonly)
+  - Stable (not moving/animating)
+  - Interactable (can receive clicks/input)
+- Can execute generated test.py or intents directly
+- **Output**: Execution state, failure codes
 
-### 5. ORACLEHEALER - Autonomous Repair
-- Analyzes failures and queries Procedural Memory
-- Healing tactics:
-  - Reprobe with fallback selectors
-  - Wait strategy adjustments
-  - Viewport/browser configuration
-  - Data correction
+#### 5. ORACLEHEALER - Autonomous Repair
+- Analyzes failures and applies healing tactics:
+  - **Reveal**: Scroll element into view
+  - **Reprobe**: Try alternative selectors
+  - **Stability Wait**: Wait for animations to complete
+- Increments heal_round counter
 - **Success Rate**: 70% autonomous healing
-- **Output**: Healed tests or interrupt for human approval
+- **Output**: Healed state or escalation
 
-## 📊 Success Metrics (Production-Validated)
+#### 6. VERDICTRCA - Reporting & Analysis
+- Aggregates execution results
+- Computes pass rates and metrics
+- Generates RCA (Root Cause Analysis) notes
+- Sets quarantine flag for problematic tests
+- **Output**: Verdict, metrics, RCA report → Postgres
 
-| Metric | Simple Flows | Complex Flows | Legacy Apps |
-|--------|-------------|---------------|-------------|
-| **Pass Rates** | 95% | 90% | 85% |
-| **Flakiness** | <5% | <5% | <5% |
-| **Autonomous Healing** | 70% | 70% | 70% |
+### Phase 2: Enhanced Features
+- Advanced healing strategies
+- Confidence scoring improvements
+- Advanced discovery patterns
 
-**Additional Metrics:**
-- **Discovery Success**: 95%+ across all strategies
-- **Test Creation Time**: ~3 minutes (requirement to verified test)
-- **Maintenance Reduction**: 70% through autonomous healing
-- **Coverage Expansion**: 3-5x in first quarter
+---
+
+## 📊 Success Metrics
+
+| Metric | Target |
+|--------|--------|
+| **Selector Discovery Accuracy** | ≥95% |
+| **Autonomous Healing Success** | ≥70% |
+| **Test Flakiness** | <5% |
+| **LangSmith Trace Coverage** | 100% |
+| **Pass Rate Reporting** | Live via API |
+
+---
 
 ## 🚀 Quick Start
 
 ### Prerequisites
 ```bash
 Python 3.11+
-PostgreSQL 15+
-Redis 7+
-AWS Bedrock access (Claude Sonnet/Haiku)
+PostgreSQL (via Docker Compose)
+Redis (via Docker Compose)
 ```
 
 ### Installation
@@ -143,169 +165,205 @@ source venv/bin/activate  # On Windows: venv\Scripts\activate
 pip install -r requirements.txt
 
 # Install Playwright browsers
-playwright install
+playwright install chromium
+
+# Start Postgres + Redis
+docker-compose up -d
 
 # Setup environment
 cp .env.example .env
-# Edit .env with your AWS Bedrock credentials and database URLs
+# Edit .env with your configuration
 ```
 
 ### Run Your First Test
 ```bash
-# 1. Create Excel requirement or use natural language
-python -m pacts plan --input "Login with valid credentials and verify dashboard loads"
+# Execute test from Excel requirement
+pacts test --req REQ-001
 
-# 2. Build Page Object Model with verified selectors
-python -m pacts build-pom --url https://your-app.com/login
+# With specific options
+pacts test --req REQ-001 --headless true
 
-# 3. Generate test code
-python -m pacts generate --plan-id plan-001
-
-# 4. Execute tests
-python -m pacts execute --test-id test-001
-
-# OR: Full pipeline in one command
-python -m pacts auto --input requirements.xlsx --url https://your-app.com
+# View results via API
+curl http://localhost:8000/verdicts/REQ-001
 ```
+
+---
 
 ## 🧠 Memory Systems
 
-### Episodic Memory
-- Stores last 100 test runs per requirement
-- Enables pattern recognition: "This selector failed 3x before"
+| Conceptual Memory | Implementation | Purpose |
+|-------------------|----------------|---------|
+| **Episodic** | Postgres Checkpointer | Run history persistence |
+| **Procedural** | Redis POM Cache | Selector confidence + last success |
+| **Semantic** | Intent Memory | Intent → selector mapping |
+| **Working** | Redis Session Cache | Live run state (1hr TTL) |
 
-### Semantic Memory
-- Domain knowledge base of learned UI patterns
-- Updated nightly through telemetry aggregation
-- Example: "Submit buttons in insurance forms use data-testid='submit-claim'"
-
-### Procedural Memory
-- Proven healing strategies with confidence scores
-- Example: "Reprobe worked 85% for dropdown failures"
-
-### Working Memory
-- Redis-based session caching (1-hour TTL)
-- High-speed access to current test context
+---
 
 ## 🔬 Observability
 
 ### LangSmith Integration
 - Full trace visibility for every agent execution
 - Strategy selection rationale
-- Discovery time and confidence scores
-- Token costs per agent call
+- Confidence scores and gate results
+- Heal rounds and RCA summaries
 
-### One-Click Replay
-- Reconstructs exact workflow locally
-- Same page state, selectors, test data
-- Eliminates "works on my machine" problems
+### FastAPI Dashboard
+- `/health` - Service status
+- `/verdicts/{req_id}` - Test results
+- `/verdicts/{req_id}/metrics` - Pass/fail metrics
+- `/runs` - Recent execution history
+- `/traces/{trace_id}` - LangSmith deep-links
 
-### Telemetry Learning Loop
-- Nightly aggregation of execution data
-- Identifies successful patterns
-- Detects UI drift
-- Updates memory systems automatically
+---
 
 ## 💻 Technology Stack
 
-| Component | Technology | Reason |
-|-----------|-----------|--------|
-| **Language** | Python 3.11+ | Modern async/await, type hints |
-| **LLM** | AWS Bedrock Claude | Sonnet (reasoning), Haiku (speed) |
-| **Orchestration** | LangGraph 1.0 | Durable state, human-in-the-loop |
-| **Automation** | Playwright Python | Superior Shadow DOM handling |
-| **Database** | PostgreSQL 15+ | JSONB for flexible schema |
-| **Cache** | Redis 7+ | Working memory, session state |
-| **Observability** | LangSmith | Full trace visibility |
+| Component | Technology | Version | Purpose |
+|-----------|-----------|---------|---------|
+| **Language** | Python | 3.11+ | Modern async/await, type hints |
+| **Orchestration** | LangGraph | 1.0 GA | Durable state machine |
+| **Automation** | Playwright | 1.45+ | Browser automation |
+| **Database** | PostgreSQL | 15+ | State persistence |
+| **Cache** | Redis | 7+ | Working memory, POM cache |
+| **Observability** | LangSmith | Latest | Full trace visibility |
+| **API** | FastAPI | Latest | Dashboard & APIs |
+| **Validation** | Pydantic | 2.6+ | Data models |
 
-### Why These Choices?
+### Key Technology Decisions
 
-**Python over TypeScript**: 
-- LangGraph 1.0 Python-only
-- Superior ML/data science ecosystem
+**LangGraph 1.0 GA**:
+- Released November 2024
+- Native state persistence (no custom workflow code)
+- Built-in checkpointing
+- Human-in-the-loop gates
 
-**Playwright over Selenium**: 
-- Native Shadow DOM piercing (92% success vs Selenium's 0%)
+**Playwright over Selenium**:
+- Superior Shadow DOM handling (92% success)
 - Modern async API reduces flakiness by 80%
 - Built-in waiting mechanisms
 
-**LangGraph 1.0**: 
-- Released November 2024
-- Native state persistence (no custom workflow code)
-- Built-in checkpointing eliminates 70% custom infrastructure
+**Postgres + Redis**:
+- Postgres: Durable state with JSONB flexibility
+- Redis: High-speed caching with TTL support
 
-**PostgreSQL with JSONB**: 
-- Flexible schema for varied test artifacts
-- ACID guarantees
-- JSONB indexing for fast nested queries
+---
 
 ## 📁 Project Structure
 
 ```
 pacts/
-├── src/
-│   ├── agents/
-│   │   ├── planner.py           # Test discovery & flow control
-│   │   ├── pom_builder.py       # Find-first verification
-│   │   ├── generator.py         # Code synthesis
-│   │   ├── executor.py          # Test execution
-│   │   └── oracle_healer.py     # Autonomous repair
-│   ├── orchestration/
-│   │   ├── langgraph_workflow.py  # LangGraph state machine
-│   │   └── checkpointer.py        # PostgreSQL persistence
-│   ├── discovery/
-│   │   ├── semantic.py            # Semantic selectors
-│   │   ├── shadow_dom.py          # CDP Shadow DOM piercing
-│   │   ├── frame_traversal.py     # iframe handling
-│   │   ├── pattern_extraction.py  # Dynamic ID patterns
-│   │   └── vision_fallback.py     # Computer vision
-│   ├── validation/
-│   │   └── actionability_gate.py  # 5-point validation
-│   ├── memory/
-│   │   ├── episodic.py            # Execution history
-│   │   ├── semantic.py            # Domain knowledge
-│   │   ├── procedural.py          # Healing strategies
-│   │   └── working.py             # Redis session cache
-│   ├── observability/
-│   │   ├── langsmith_traces.py    # Trace instrumentation
-│   │   ├── replay.py              # One-click replay
-│   │   └── telemetry_loop.py      # Nightly aggregation
-│   └── utils/
-│       ├── excel_parser.py        # Requirements ingestion
-│       ├── natural_language.py    # NL parsing
-│       └── rest_api.py            # API integration
-├── tests/
-│   ├── unit/
-│   ├── integration/
-│   └── e2e/
-├── docs/
-├── examples/
-│   └── requirements.xlsx     # Example requirements registry
-├── requirements.txt          # Python dependencies
-├── .env.example              # Environment template
-├── docker-compose.yml        # PostgreSQL + Redis setup
+├── backend/                  # Python backend (Phase 1)
+│   ├── graph/                # LangGraph orchestration
+│   │   ├── state.py
+│   │   ├── build_graph.py
+│   │   └── nodes/
+│   ├── agents/               # 6 agents (Phase 1)
+│   │   ├── planner.py
+│   │   ├── pom_builder.py
+│   │   ├── generator.py
+│   │   ├── executor.py
+│   │   ├── oracle_healer.py
+│   │   └── verdict_rca.py
+│   ├── runtime/              # Browser automation
+│   │   ├── browser_client.py
+│   │   ├── browser_manager.py
+│   │   ├── policies.py
+│   │   └── discovery.py
+│   ├── memory/               # Persistence layer
+│   │   ├── postgres_cp.py
+│   │   ├── redis_cache.py
+│   │   └── intent_memory.py
+│   ├── telemetry/            # Observability
+│   │   ├── tracing.py
+│   │   └── metrics.py
+│   ├── api/                  # FastAPI REST APIs
+│   │   ├── main.py
+│   │   ├── routes/
+│   │   │   ├── verdicts.py
+│   │   │   ├── runs.py
+│   │   │   ├── requirements.py
+│   │   │   └── health.py
+│   │   └── models/
+│   ├── cli/                  # Command line
+│   │   └── main.py
+│   ├── tests/
+│   │   ├── unit/
+│   │   ├── integration/
+│   │   └── e2e/
+│   ├── requirements.txt
+│   └── .env.example
+│
+├── frontend/                 # Angular 18 UI (Phase 3)
+│   ├── src/
+│   │   ├── app/
+│   │   │   ├── features/
+│   │   │   │   ├── dashboard/
+│   │   │   │   ├── requirements/
+│   │   │   │   ├── test-runs/
+│   │   │   │   ├── verdicts/
+│   │   │   │   └── settings/
+│   │   │   ├── core/
+│   │   │   │   ├── services/
+│   │   │   │   └── guards/
+│   │   │   └── shared/
+│   │   │       ├── components/
+│   │   │       └── models/
+│   │   └── environments/
+│   ├── angular.json
+│   └── package.json
+│
+├── docker/
+│   ├── docker-compose.yml
+│   ├── backend.Dockerfile
+│   └── frontend.Dockerfile
+│
+├── generated_tests/          # Output from Generator agent
+│   └── REQ-XXX/
+│       ├── test.py
+│       ├── fixtures.json
+│       └── data_loaders.py
+│
 └── README.md
 ```
 
-## 🎯 Use Cases
+---
 
-### Simple Flows (95% Pass Rate)
-- Login/authentication
-- Form submission
-- Basic navigation
-- Standard CRUD operations
+## 📈 Roadmap
 
-### Complex Flows (90% Pass Rate)
-- Multi-step wizards
-- Dynamic content loading
-- Conditional logic
-- API-dependent workflows
+### Phase 1: Complete MVP (Weeks 1-2)
+- ✅ **6-agent pipeline**: Planner, POMBuilder, **Generator**, Executor, OracleHealer, VerdictRCA
+- ✅ LangGraph 1.0 orchestration with all 6 agents
+- ✅ Multi-strategy discovery (5 strategies)
+- ✅ 5-point actionability gate
+- ✅ **Test.py generation with fixtures**
+- ✅ Autonomous healing (reveal, reprobe, stability wait)
+- ✅ FastAPI dashboard & Verdict APIs
+- ✅ LangSmith telemetry for all agents
+- ✅ Postgres + Redis persistence
 
-### Legacy Applications (85% Pass Rate)
-- Dynamic IDs without patterns
-- Nested iframes (3+ levels)
-- Non-standard implementations
-- Mixed modern/legacy components
+### Phase 2: Enhanced Features (Weeks 3-4)
+- Advanced healing strategies
+- Confidence scoring improvements
+- Advanced discovery patterns
+- Performance optimizations
+
+### Phase 3: Angular 18 Frontend (Weeks 5-8)
+- **Dashboard**: Real-time test execution status, charts, timeline
+- **Requirements Management**: Upload/edit Excel, visual editor
+- **Test Execution**: Trigger tests via UI, live progress, screenshot viewing
+- **Verdicts & Analytics**: Detailed verdicts, RCA reports, historical trends
+- **Settings**: Policy configuration, browser settings
+- **Real-time Updates**: WebSocket integration for live status
+
+### Phase 4: Enterprise Features (Weeks 9-12)
+- MCP integration (optional)
+- Semantic memory learning
+- Multi-tenant support with user management
+- Advanced analytics and reporting
+- Integration marketplace
+
+---
 
 ## 💡 Why PACTS?
 
@@ -316,21 +374,13 @@ pacts/
 | **Approach** | Generate code first, hope it works | Find-First Verification |
 | **Success Rate** | 70-80% | 95%+ |
 | **Flakiness** | 15-30% | <5% |
-| **Shadow DOM** | ❌ Not supported | ✅ 92% success with CDP |
+| **Shadow DOM** | ❌ Not supported | ✅ 92% success |
 | **Dynamic IDs** | ❌ Fails | ✅ 88% with pattern extraction |
 | **Healing** | ❌ Manual fixes | ✅ 70% autonomous |
-| **Learning** | ❌ No memory | ✅ 4 memory systems |
+| **Memory** | ❌ No learning | ✅ 4 memory systems |
 | **Observability** | ❌ Limited | ✅ Full LangSmith traces |
 
-### vs Building In-House
-
-| Aspect | Build In-House | Use PACTS |
-|--------|----------------|-----------|
-| **Time to Production** | 12-18 months | 4-6 weeks (pilot) |
-| **Engineering Cost** | $500K-$1M | Pilot + rollout |
-| **Maintenance** | Ongoing team | Minimal |
-| **Risk** | High (POC may fail) | Low (proven architecture) |
-| **Learning Curve** | Steep | Minimal for QA teams |
+---
 
 ## 🔒 Security & Compliance
 
@@ -339,72 +389,37 @@ pacts/
 - Supports enterprise authentication systems
 - GDPR/SOC2 compliance-ready architecture
 
+---
+
 ## 🤝 Contributing
 
 We welcome contributions! See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 
-### Development Setup
-```bash
-# Install dev dependencies
-pip install -r requirements-dev.txt
-
-# Run tests
-pytest tests/ -v
-
-# Run linting
-flake8 src/
-black src/
-mypy src/
-
-# Run type checking
-mypy src/ --strict
-```
+---
 
 ## 📖 Documentation
 
-- [Architecture Deep Dive](docs/ARCHITECTURE.md)
-- [Agent Pipeline Guide](docs/AGENTS.md)
-- [Memory Systems](docs/MEMORY.md)
-- [Deployment Guide](docs/DEPLOYMENT.md)
-- [API Reference](docs/API.md)
-- [Troubleshooting](docs/TROUBLESHOOTING.md)
+For detailed implementation specifications, see:
+- **[PACTS-Build-Blueprint-v3.4.md](PACTS-Build-Blueprint-v3.4.md)** - Authoritative build reference
 
-## 📈 Roadmap
+Archived documentation:
+- [docs/archive/](docs/archive/) - Previous architecture iterations
 
-### Q1 2025
-- ✅ Production-ready core architecture
-- ✅ Five-agent pipeline with LangGraph 1.0
-- ✅ Multi-strategy discovery engine
-- 🔄 Enterprise pilot deployments
-
-### Q2 2025
-- Visual regression testing
-- API testing integration
-- Mobile web support
-- Advanced healing strategies
-
-### Q3 2025
-- Multi-tenant SaaS deployment
-- Custom agent marketplace
-- Advanced analytics dashboard
-- Integration marketplace
+---
 
 ## 📄 License
 
 MIT License - see [LICENSE](LICENSE) for details
 
+---
+
 ## 📞 Contact & Support
 
 - **Issues**: [GitHub Issues](https://github.com/yourusername/pacts/issues)
 - **Discussions**: [GitHub Discussions](https://github.com/yourusername/pacts/discussions)
-- **Documentation**: [docs.pacts.dev](https://docs.pacts.dev)
 
 ---
 
 **Ready to transform your test automation from 70% to 95%+ success?**
 
-[Request a Demo](https://pacts.dev/demo) | [Read the Docs](https://docs.pacts.dev) | [Join Community](https://pacts-community.slack.com)
-=======
-# pacts
-Production-Ready Autonomous Context Testing System - Transform AI test generation from 70% to 95%+ with Find-First Verification
->>>>>>> 368a0b6d411553cb83f3d994fc7a4c3cc25d032e
+Built with LangGraph 1.0 | Powered by Playwright | Observed by LangSmith
