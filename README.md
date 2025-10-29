@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # PACTS - Production-Ready Autonomous Context Testing System
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
@@ -403,3 +404,7 @@ MIT License - see [LICENSE](LICENSE) for details
 **Ready to transform your test automation from 70% to 95%+ success?**
 
 [Request a Demo](https://pacts.dev/demo) | [Read the Docs](https://docs.pacts.dev) | [Join Community](https://pacts-community.slack.com)
+=======
+# pacts
+Production-Ready Autonomous Context Testing System - Transform AI test generation from 70% to 95%+ with Find-First Verification
+>>>>>>> 368a0b6d411553cb83f3d994fc7a4c3cc25d032e
