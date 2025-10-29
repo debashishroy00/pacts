@@ -1,7 +1,7 @@
 {
   "permissions": {
     "allow": [
-      "Bash(python -c \"\nfrom pptx import Presentation\nimport sys\n\n# Set encoding for Windows console\nsys.stdout.reconfigure(encoding=''''utf-8'''')\n\nprs = Presentation(''''PACTS_Production-Ready_Autonomous_Context_Testing_System.pptx'''')\n\nfor i, slide in enumerate(prs.slides):\n    print(f''''\\n=== SLIDE {i+1} ==='''')\n    for shape in slide.shapes:\n        if hasattr(shape, ''''text''''):\n            text = shape.text.strip()\n            if text:\n                print(text)\n\")"
+      "Bash(tree -L 3 -I 'venv|__pycache__|*.pyc|.git')"
     ],
     "deny": [],
     "ask": []

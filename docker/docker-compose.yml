@@ -1,0 +1,91 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    container_name: pacts-postgres
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-pacts}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-pacts}
+      POSTGRES_DB: ${POSTGRES_DB:-pacts}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U pacts"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - pacts-network
+
+  # Redis Cache
+  redis:
+    image: redis:7-alpine
+    container_name: pacts-redis
+    command: redis-server --appendonly yes
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - pacts-network
+
+  # Backend API (Phase 1)
+  # Uncomment when backend is ready to run
+  # backend:
+  #   build:
+  #     context: ../backend
+  #     dockerfile: ../docker/backend.Dockerfile
+  #   container_name: pacts-backend
+  #   environment:
+  #     DATABASE_URL: postgresql://pacts:pacts@postgres:5432/pacts
+  #     REDIS_URL: redis://redis:6379/0
+  #     LANGSMITH_API_KEY: ${LANGSMITH_API_KEY}
+  #     AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
+  #     AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
+  #     AWS_REGION: ${AWS_REGION:-us-east-1}
+  #   ports:
+  #     - "8000:8000"
+  #   depends_on:
+  #     postgres:
+  #       condition: service_healthy
+  #     redis:
+  #       condition: service_healthy
+  #   volumes:
+  #     - ../backend:/app
+  #     - ../generated_tests:/generated_tests
+  #   networks:
+  #     - pacts-network
+  #   command: uvicorn api.main:app --host 0.0.0.0 --port 8000 --reload
+
+  # Frontend (Phase 3)
+  # Uncomment when frontend is ready
+  # frontend:
+  #   build:
+  #     context: ../frontend
+  #     dockerfile: ../docker/frontend.Dockerfile
+  #   container_name: pacts-frontend
+  #   ports:
+  #     - "80:80"
+  #   depends_on:
+  #     - backend
+  #   networks:
+  #     - pacts-network
+
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+
+networks:
+  pacts-network:
+    driver: bridge

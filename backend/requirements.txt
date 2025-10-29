@@ -1,0 +1,56 @@
+# Core Dependencies
+python-dotenv>=1.0.0
+
+# LangChain & LangGraph
+langgraph>=1.0.0,<2.0.0
+langchain>=0.3.0,<0.4.0
+langsmith>=0.1.39
+
+# Browser Automation
+playwright>=1.45,<2.0
+
+# Web Framework
+fastapi>=0.109.0
+uvicorn[standard]>=0.27.0
+python-multipart>=0.0.6
+websockets>=12.0
+
+# Data Validation
+pydantic>=2.6,<3.0
+pydantic-settings>=2.0.0
+
+# Database
+psycopg[binary]>=3.2,<4.0
+alembic>=1.13,<2.0
+
+# Cache
+redis>=5.0,<6.0
+
+# Excel Processing
+openpyxl>=3.1,<4.0
+pandas>=2.0.0
+
+# Retry Logic
+tenacity>=8.2,<9.0
+
+# Logging
+structlog>=24.0.0
+
+# Testing
+pytest>=7.4.0
+pytest-asyncio>=0.21.0
+pytest-playwright>=0.4.0
+pytest-cov>=4.1.0
+httpx>=0.25.0  # For FastAPI testing
+
+# Code Quality
+black>=24.0.0
+flake8>=7.0.0
+mypy>=1.8.0
+isort>=5.13.0
+
+# Template Engine (for Generator agent)
+jinja2>=3.1.0
+
+# Utilities
+pyyaml>=6.0
