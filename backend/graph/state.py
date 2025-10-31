@@ -19,6 +19,7 @@ class RunState(BaseModel):
     failure: Failure = Failure.none
     last_selector: Optional[str] = None
     verdict: Optional[str] = None
+    heal_events: List[Dict[str, Any]] = Field(default_factory=list)  # OracleHealer v2 tracking
 
     @property
     def plan(self) -> List[Dict[str, Any]]:

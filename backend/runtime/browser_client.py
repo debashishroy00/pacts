@@ -135,6 +135,108 @@ class BrowserClient:
             return f'[role="{role}"][aria-label*="{al}"]', handle
         return f'role={role}[name~="{getattr(name_pattern, "pattern", str(name_pattern))}"]', handle
 
+    # ==========================================
+    # HEALING HELPERS (OracleHealer v2)
+    # ==========================================
+
+    async def scroll_into_view(self, selector: str) -> bool:
+        """Scroll element into viewport (reveal strategy)."""
+        assert self.page, "Call start() first"
+        try:
+            await self.page.locator(selector).first.scroll_into_view_if_needed(timeout=2000)
+            return True
+        except Exception:
+            return False
+
+    async def dismiss_overlays(self) -> int:
+        """Try common overlay dismissal patterns. Returns count of dismissed overlays."""
+        assert self.page, "Call start() first"
+        dismissed = 0
+
+        # Strategy 1: Press ESC (dismiss modals, popups)
+        try:
+            await self.page.keyboard.press("Escape", timeout=500)
+            dismissed += 1
+        except Exception:
+            pass
+
+        # Strategy 2: Click backdrop elements (common modal patterns)
+        backdrop_selectors = [
+            '.modal-backdrop',
+            '[data-backdrop="static"]',
+            '.overlay',
+            '[aria-modal="false"]'
+        ]
+        for sel in backdrop_selectors:
+            try:
+                count = await self.page.locator(sel).count()
+                if count > 0:
+                    await self.page.locator(sel).first.click(timeout=500)
+                    dismissed += 1
+            except Exception:
+                pass
+
+        # Strategy 3: Find and click close buttons
+        close_selectors = [
+            'button[aria-label*="close" i]',
+            'button[aria-label*="dismiss" i]',
+            '[data-dismiss="modal"]',
+            '.close',
+            '.modal-close'
+        ]
+        for sel in close_selectors:
+            try:
+                count = await self.page.locator(sel).count()
+                if count > 0:
+                    await self.page.locator(sel).first.click(timeout=500)
+                    dismissed += 1
+            except Exception:
+                pass
+
+        return dismissed
+
+    async def wait_network_idle(self, timeout_ms: int = 1000) -> bool:
+        """Wait for network to be idle (no active requests)."""
+        assert self.page, "Call start() first"
+        try:
+            await self.page.wait_for_load_state("networkidle", timeout=timeout_ms)
+            return True
+        except Exception:
+            return False
+
+    async def incremental_scroll(self, pixels: int = 200) -> bool:
+        """Scroll page by incremental amount (for lazy-loading UIs)."""
+        assert self.page, "Call start() first"
+        try:
+            await self.page.evaluate(f"window.scrollBy(0, {pixels})")
+            return True
+        except Exception:
+            return False
+
+    async def bring_to_front(self) -> bool:
+        """Bring page/tab to foreground."""
+        assert self.page, "Call start() first"
+        try:
+            await self.page.bring_to_front()
+            return True
+        except Exception:
+            return False
+
+    async def wait_for_stability(self, selector: str, samples: int = 3, delay_ms: int = 200, tol: float = 2.0) -> bool:
+        """Wait for element bbox to stabilize (animations, transitions)."""
+        assert self.page, "Call start() first"
+        try:
+            el = await self.page.query_selector(selector)
+            if not el:
+                return False
+            return await self.bbox_stable(el, samples=samples, delay_ms=delay_ms, tol=tol)
+        except Exception:
+            return False
+
+    # ==========================================
+    # END HEALING HELPERS
+    # ==========================================
+
     async def close(self):
         if self.browser:
             await self.browser.close()

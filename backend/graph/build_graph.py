@@ -56,27 +56,27 @@ def build_graph():
     from ..agents import executor
     g.add_node("executor", executor.run)
 
-    # Stubs for Phase 1 (to be implemented later)
-    async def oracle_healer_stub(state: RunState) -> RunState:
-        """Stub: increment heal_round and retry executor."""
-        state.heal_round += 1
-        state.failure = Failure.none  # Reset failure to retry
-        return state
+    # OracleHealer v2 (real implementation)
+    from ..agents import oracle_healer
+    g.add_node("oracle_healer", oracle_healer.run)
 
+    # VerdictRCA stub (to be implemented in Phase 2)
     async def verdict_rca_stub(state: RunState) -> RunState:
         """Stub: compute verdict based on execution results."""
         if state.failure != Failure.none:
             state.verdict = "fail"
             state.context["rca"] = f"Failed at step {state.step_idx} with {state.failure.value}"
+            state.context["healed"] = state.heal_round > 0
         elif state.step_idx >= len(state.plan):
             state.verdict = "pass"
             state.context["rca"] = "All steps executed successfully"
+            state.context["healed"] = state.heal_round > 0
         else:
             state.verdict = "partial"
             state.context["rca"] = f"Completed {state.step_idx}/{len(state.plan)} steps"
+            state.context["healed"] = state.heal_round > 0
         return state
 
-    g.add_node("oracle_healer", oracle_healer_stub)
     g.add_node("verdict_rca", verdict_rca_stub)
 
     # Define edges

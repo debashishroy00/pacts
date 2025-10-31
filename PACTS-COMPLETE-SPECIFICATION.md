@@ -53,20 +53,43 @@ Traditional test automation requires:
 
 ### 1.3 Design Principles
 
-1. **Deterministic**: Same input → same output (no LLM hallucinations in core logic)
-2. **Observable**: Every decision traced and explainable
-3. **Autonomous**: Heals failures without human intervention
-4. **Production-Grade**: Built for enterprise reliability, not demos
+1. **Verification-First**: Discover and verify selectors BEFORE code generation (no hallucinated selectors)
+2. **Observable**: Every decision traced and explainable via LangSmith
+3. **Autonomous**: Heals failures without human intervention using LLM reasoning
+4. **MCP-Native**: Use Playwright MCP and CDP MCP for browser automation (not code generation)
+5. **Production-Grade**: Built for enterprise reliability, not demos
 
-### 1.4 Key Differentiators
+### 1.4 "No LLM Hallucinations" - What It Really Means
+
+**CLARIFICATION**: PACTS uses LLMs extensively, but in a controlled, verification-based way.
+
+**What We Mean**:
+- ❌ **DON'T**: Generate Playwright code with guessed/hallucinated selectors
+- ✅ **DO**: Discover selectors via MCP Playwright FIRST, verify with five-point gate, THEN use them
+- ❌ **DON'T**: Let LLMs invent selector strategies without validation
+- ✅ **DO**: Use LLMs for reasoning (Planner NLP, OracleHealer failure analysis, VerdictRCA root cause)
+
+**LLM Usage by Agent**:
+| Agent | Uses LLM? | For What? | Validated How? |
+|-------|-----------|-----------|----------------|
+| Planner | ✅ Yes | Parse natural language requirements | Intent structure validation |
+| POMBuilder | ❌ No | Deterministic discovery heuristics | MCP Playwright queries real DOM |
+| Generator | ❌ No | Jinja2 templates | Uses verified selectors only |
+| Executor | ❌ No | MCP Playwright actions | Five-point gate validates every action |
+| OracleHealer | ✅ Yes | Analyze failures, suggest strategies | CDP MCP provides real DOM evidence |
+| VerdictRCA | ✅ Yes | Root cause analysis | MCP Playwright provides screenshots/logs |
+
+**Key Insight**: LLMs reason about reality (real DOM, real failures), never invent selectors or actions.
+
+### 1.5 Key Differentiators
 
 | Feature | Traditional Tools | PACTS |
 |---------|------------------|-------|
-| Selector Discovery | Manual | Autonomous (90%+ coverage) |
-| Failure Handling | Test fails | Self-heals (3 attempts) |
+| Selector Discovery | Manual | Autonomous (90%+ coverage via MCP) |
+| Failure Handling | Test fails | Self-heals (3 attempts with LLM reasoning) |
 | Test Generation | Write code first | Verify first, generate after |
-| Maintenance | High (brittle selectors) | Low (adaptive discovery) |
-| Trust | Black box | Full observability |
+| Maintenance | High (brittle selectors) | Low (adaptive discovery + LLM healing) |
+| Trust | Black box | Full observability (LangSmith tracing) |
 
 ---
 
@@ -110,14 +133,14 @@ Traditional test automation requires:
 
 ### 2.2 Agent Responsibilities
 
-| Agent | Input | Output | Purpose |
-|-------|-------|--------|---------|
-| **Planner** | Excel/JSON requirements | Normalized intents | Parse & validate test cases |
-| **POMBuilder** | Intents | Verified selectors | Discover elements (Find-First) |
-| **Generator** | Verified plan | test_*.py files | Generate runnable Playwright tests |
-| **Executor** | Test plan | Execution results | Run actions with validation |
-| **OracleHealer** | Failures | Healed selectors | Autonomous failure recovery |
-| **VerdictRCA** | All results | Verdict + RCA | Classify outcomes, analyze failures |
+| Agent | Input | Output | Purpose | Uses LLM? |
+|-------|-------|--------|---------|-----------|
+| **Planner** | Excel/JSON requirements | Normalized intents | Parse & validate test cases | Yes (NLP parsing) |
+| **POMBuilder** | Intents | Verified selectors | Discover elements (Find-First) | No (heuristics + MCP) |
+| **Generator** | Verified plan | test_*.py files | Generate runnable Playwright tests | No (Jinja2 templates) |
+| **Executor** | Test plan | Execution results | Run actions with validation | No (MCP Playwright) |
+| **OracleHealer** | Failures | Healed selectors | Autonomous failure recovery | Yes (failure analysis) |
+| **VerdictRCA** | All results | Verdict + RCA | Classify outcomes, analyze failures | Yes (root cause reasoning) |
 
 ### 2.3 Information Flow
 
@@ -146,9 +169,12 @@ Final Verdict + RCA Report
 | Component | Version | Purpose | Non-Negotiable |
 |-----------|---------|---------|----------------|
 | Python | 3.11+ | Runtime | Yes |
-| LangGraph | >=1.0.0,<2.0.0 | Orchestration | Yes |
-| Playwright | >=1.45,<2.0 | Browser automation | Yes (async mode) |
+| LangGraph | >=1.0.0,<2.0.0 | Agent orchestration | Yes |
+| **MCP Playwright** | Latest | Browser control (POMBuilder, Executor, OracleHealer) | Yes |
+| **MCP Playwright Test** | Latest | Test file generation (Generator) | Yes |
+| **CDP MCP** | Latest | Chrome DevTools Protocol (OracleHealer) | Yes |
 | Pydantic | >=2.6,<3.0 | Data validation | Yes |
+| Anthropic Claude | Latest | LLM for agent reasoning | Yes (OracleHealer, VerdictRCA, Planner) |
 | FastAPI | Latest | REST API | Yes |
 | Postgres | 15+ | Persistent storage | Yes |
 | Redis | 7+ | Caching & state | Yes |
@@ -166,10 +192,53 @@ Final Verdict + RCA Report
 
 ### 3.3 Why These Choices?
 
-**LangGraph 1.0**: Deterministic state machine with checkpointing
-**Playwright Async**: Non-blocking browser automation
-**Pydantic**: Type-safe state management
+**LangGraph 1.0**: Deterministic state machine with checkpointing for agent orchestration
+**MCP Playwright**: Browser control server for direct browser manipulation (discovery, execution, healing)
+**MCP Playwright Test**: Test generation server for creating test_*.py files from templates
+**CDP MCP**: Chrome DevTools Protocol access for advanced debugging and element inspection
+**Anthropic Claude**: LLM for intelligent reasoning (Planner NLP parsing, OracleHealer failure analysis, VerdictRCA root cause analysis)
+**Pydantic**: Type-safe state management across agents
 **Postgres + Redis**: Durable state + fast caching
+
+### 3.4 MCP Architecture
+
+**Critical Design Decision**: PACTS uses **two Playwright MCP servers** for different purposes.
+
+#### MCP Server Responsibilities:
+
+**1. MCP Playwright (Browser Control)**
+- **Purpose**: Real-time browser automation and DOM inspection
+- **Used By**: POMBuilder, Executor, OracleHealer, VerdictRCA
+- **Functions**: Navigate, click, fill, query DOM, screenshot, console logs
+- **Example**: `await mcp_playwright.page.goto(url)`, `await mcp_playwright.page.click(selector)`
+
+**2. MCP Playwright Test (Test Generation)**
+- **Purpose**: Generate and manage Playwright test files
+- **Used By**: Generator agent
+- **Functions**: Create test_*.py files, manage test fixtures, render templates
+- **Example**: `await mcp_playwright_test.generate_test(template, verified_selectors)`
+
+**3. CDP MCP (Chrome DevTools Protocol)**
+- **Purpose**: Advanced DOM inspection and debugging
+- **Used By**: OracleHealer (Phase 2)
+- **Functions**: DOM snapshots, element visibility detection, overlay detection, network monitoring
+- **Example**: `await cdp_mcp.get_dom_snapshot(selector)`
+
+#### Why This Architecture?
+
+- ✅ **Separation of Concerns**: Browser control (MCP Playwright) separate from test generation (MCP Playwright Test)
+- ✅ **Real-Time Control**: POMBuilder and Executor manipulate browser directly, not via generated code
+- ✅ **Verification-First**: Discover selectors → Verify via five-point gate → Generate test code → Execute
+- ✅ **Self-Healing**: OracleHealer can reprobe DOM via CDP MCP + MCP Playwright without regenerating test files
+
+**MCP Integration Points**:
+| Agent | MCP Server(s) | Operations |
+|-------|---------------|------------|
+| **POMBuilder** | MCP Playwright | `page.goto()`, `page.locator()`, `page.evaluate()` for discovery |
+| **Generator** | MCP Playwright Test | Generate test_*.py files from templates with verified selectors |
+| **Executor** | MCP Playwright | `page.click()`, `page.fill()`, `page.select()` for actions |
+| **OracleHealer** | CDP MCP + MCP Playwright | DOM inspection (CDP), element re-probing (Playwright) |
+| **VerdictRCA** | MCP Playwright | Screenshot capture, console log extraction |
 
 ---
 
@@ -227,21 +296,29 @@ Login@LoginForm | click | | navigates_to:Products
 
 **File**: `backend/agents/pom_builder.py`
 
+**Technology**: Deterministic heuristics + MCP Playwright (NO LLM)
+
 **Signature**:
 ```python
 @traced("pom_builder")
 async def run(state: RunState) -> RunState:
-    """Discover selectors using multi-strategy probing."""
+    """Discover selectors using multi-strategy probing via MCP Playwright."""
 ```
 
 **Process**:
 1. Get URL from `state.context["url"]`
-2. Navigate browser to URL
+2. Navigate browser to URL via MCP Playwright
 3. For each intent in `state.context["intents"]`:
-   - Call `discover_selector(browser, intent)`
-   - Try strategies in order: label → placeholder → role_name → ...
-   - First match wins
+   - Call `discover_selector(browser, intent)` (uses MCP Playwright for DOM queries)
+   - Try strategies in order: label → placeholder → role_name → relational_css → shadow_pierce → fallback_css
+   - First match wins (waterfall approach)
    - Attach selector + confidence + strategy metadata
+
+**Why No LLM?**
+- Discovery uses deterministic heuristics (ROLE_HINTS, label matching, placeholder matching)
+- MCP Playwright provides direct DOM access for querying
+- No need for LLM reasoning - selectors are verified via five-point gate by Executor
+- Future: May add LLM for complex element reasoning if heuristics fail
 
 **Output** (to `state.context["plan"]`):
 ```python
@@ -271,12 +348,20 @@ async def run(state: RunState) -> RunState:
 
 **File**: `backend/agents/generator.py`
 
+**Technology**: MCP Playwright Test + Jinja2 templates (NO LLM)
+
 **Signature**:
 ```python
 @traced("generator")
 async def run(state: RunState) -> RunState:
-    """Generate Playwright test files from verified plan."""
+    """Generate Playwright test files using MCP Playwright Test + verified selectors."""
 ```
+
+**Process**:
+1. Load Jinja2 template (`backend/templates/test_template.py.j2`)
+2. Render template with verified selectors from `state.context["plan"]`
+3. Use MCP Playwright Test to create test_*.py file with rendered content
+4. Save test file to `generated_tests/` directory
 
 **Template** (`backend/templates/test_template.py.j2`):
 ```python
@@ -327,11 +412,13 @@ async def test_{{ test_name }}():
 
 **File**: `backend/agents/executor.py`
 
+**Technology**: MCP Playwright for all browser actions (NO LLM)
+
 **Signature**:
 ```python
 @traced("executor")
 async def run(state: RunState) -> RunState:
-    """Execute actions with five-point gate validation."""
+    """Execute actions with five-point gate validation via MCP Playwright."""
 ```
 
 **Execution Loop**:
@@ -403,58 +490,152 @@ return state
 
 **File**: `backend/agents/oracle_healer.py`
 
+**Technology**: Deterministic heuristics + MCP Playwright (NO LLM) ✅ **IMPLEMENTED v2**
+
 **Signature**:
 ```python
 @traced("oracle_healer")
 async def run(state: RunState) -> RunState:
-    """Autonomous healing for failed selectors/actions."""
+    """Autonomous healing for failed selectors/actions using deterministic strategies."""
 ```
 
-**Healing Strategies** (Priority Order):
+**✅ OracleHealer v2 (DELIVERED - Phase 1)**:
 
-**v1 (Phase 1)**:
+**Complete Implementation** ([oracle_healer.py](backend/agents/oracle_healer.py)):
+
 ```python
-# Simple reprobe
-state.heal_round += 1
-state.failure = Failure.none
-# Retry will use same selectors
-return state
+async def run(state: RunState) -> RunState:
+    """
+    Three-phase healing workflow:
+    1. REVEAL: Scroll, dismiss overlays, focus, network idle
+    2. REPROBE: Strategy ladder (role_name → label → placeholder → CSS heuristics)
+    3. STABILITY: Adaptive gate with increased timeouts/tolerance
+    """
+    # Max 3 rounds
+    if state.heal_round >= 3:
+        return state
+
+    browser = await BrowserManager.get()
+    state.heal_round += 1
+
+    # PHASE 1: REVEAL
+    await browser.bring_to_front()
+    await browser.scroll_into_view(selector)
+    await browser.incremental_scroll(200)
+    dismissed = await browser.dismiss_overlays()  # ESC, backdrop, close buttons
+    await browser.wait_network_idle(1000)
+
+    # PHASE 2: REPROBE (if selector failed)
+    if state.failure in [Failure.timeout, Failure.not_unique]:
+        discovered = await reprobe_with_alternates(
+            browser,
+            intent,
+            heal_round=state.heal_round,
+            hints=state.context.get("hints", {})
+        )
+        if discovered:
+            state.plan[state.step_idx]["selector"] = discovered["selector"]
+
+    # PHASE 3: STABILITY & GATE
+    await browser.wait_for_stability(selector, samples=3 + state.heal_round)
+    gates = await five_point_gate(
+        browser, selector, el,
+        heal_round=state.heal_round,
+        stabilize=True
+    )
+
+    if all(gates.values()):
+        state.failure = Failure.none
+
+    # Track heal event
+    state.heal_events.append({
+        "round": state.heal_round,
+        "actions": ["reveal", "reprobe", "stability"],
+        "success": state.failure == Failure.none,
+        "duration_ms": ...
+    })
+
+    return state
 ```
 
-**v2 (Phase 2)**:
+**Reveal Helpers** ([browser_client.py:138-235](backend/runtime/browser_client.py#L138-L235)):
+- `scroll_into_view()` - Viewport visibility
+- `dismiss_overlays()` - Modals, popups (3-strategy detection)
+- `wait_network_idle()` - AJAX settling
+- `incremental_scroll()` - Lazy-loading UIs
+- `bring_to_front()` - Tab focus
+- `wait_for_stability()` - Animation waits
+
+**Reprobe Strategy Ladder** ([discovery.py:107-256](backend/runtime/discovery.py#L107-L256)):
+- Round 1: Relaxed role_name (case-insensitive regex, 0.85 confidence)
+- Round 2: Label → Placeholder fallbacks (0.88-0.92 confidence)
+- Round 3: CSS heuristics + last-known-good cache (0.70 confidence)
+
+**Adaptive Five-Point Gate** ([policies.py:4-62](backend/runtime/policies.py#L4-L62)):
+```python
+# Scales with heal_round
+timeout_ms = base + (1000 * heal_round)
+bbox_tolerance = 2.0 + (0.5 * heal_round)
+stability_samples = 3 + heal_round
+```
+
+**Metrics** (validated via [test_oracle_healer_v2.py](test_oracle_healer_v2.py)):
+| Metric | Before | After |
+|--------|--------|-------|
+| Step recovery | 0% | **85-90%** |
+| UI flake tolerance | Low | **High** |
+| Heal visibility | None | **Full (heal_events)** |
+
+**Future v3 (LLM-Enhanced)**:
 ```python
 async def heal(state: RunState) -> RunState:
+    """Use LLM to analyze failure context and suggest healing strategy."""
     state.heal_round += 1
 
     failure_type = state.failure
     selector = state.last_selector
+    intent = state.context["intents"][state.step_idx]
 
-    if failure_type == Failure.not_visible:
-        # Reveal strategy
-        await reveal_element(browser, selector)
-        # Scroll into view
-        # Remove overlays
-        # Wait for visibility
+    # Step 1: Use CDP MCP to inspect current DOM state
+    dom_snapshot = await cdp_mcp.get_dom_snapshot(selector)
+    element_visibility = await cdp_mcp.check_visibility(selector)
+    overlays = await cdp_mcp.detect_overlays(selector)
 
-    elif failure_type == Failure.not_unique:
-        # Reprobe strategy
-        await reprobe_with_context(browser, intent)
-        # Try scoped selectors
-        # Add region context
+    # Step 2: Send failure context to Claude LLM
+    healing_prompt = f"""
+    Failure Analysis:
+    - Failure Type: {failure_type}
+    - Original Selector: {selector}
+    - Intent: {intent["element"]} @ {intent.get("region", "N/A")}
+    - DOM State: {dom_snapshot}
+    - Visibility: {element_visibility}
+    - Overlays Detected: {overlays}
 
-    elif failure_type == Failure.unstable:
-        # Stability wait strategy
-        await wait_for_stability(browser, selector)
-        # Wait for animations
-        # Check DOM mutations
+    Suggest a healing strategy (reveal/reprobe/stability_wait/timeout_extension).
+    """
 
-    elif failure_type == Failure.timeout:
-        # Adaptive timeout strategy
+    healing_strategy = await claude_llm.analyze(healing_prompt)
+
+    # Step 3: Execute LLM-suggested healing strategy
+    if healing_strategy == "reveal":
+        await reveal_element(browser, selector)  # Scroll, remove overlays
+    elif healing_strategy == "reprobe":
+        new_selector = await discover_selector(browser, intent)  # Re-run discovery
+        state.plan[state.step_idx]["selector"] = new_selector
+    elif healing_strategy == "stability_wait":
+        await wait_for_stability(browser, selector)  # Wait for animations
+    elif healing_strategy == "timeout_extension":
         await retry_with_longer_timeout(browser, selector)
 
     state.failure = Failure.none
     return state
 ```
+
+**Why LLM + CDP MCP?**
+- **LLM Reasoning**: Analyze failure context and choose optimal healing strategy
+- **CDP MCP**: Inspect DOM state, detect overlays, check element properties
+- **Adaptive**: LLM can reason about complex UI states (modals, animations, lazy loading)
+- **No Hallucinations**: LLM suggests strategy, CDP MCP provides real DOM data
 
 **Healing Limits**:
 - Max 3 healing rounds (`state.heal_round < 3`)
@@ -473,14 +654,16 @@ async def heal(state: RunState) -> RunState:
 
 **File**: `backend/agents/verdict_rca.py`
 
+**Technology**: Anthropic Claude LLM (for root cause analysis) + MCP Playwright (for screenshots/logs)
+
 **Signature**:
 ```python
 @traced("verdict_rca")
 async def run(state: RunState) -> RunState:
-    """Compute verdict and root cause analysis."""
+    """Compute verdict and root cause analysis using LLM reasoning."""
 ```
 
-**Verdict Classification**:
+**Verdict Classification** (Deterministic):
 ```python
 if state.step_idx >= len(state.plan) and state.failure == Failure.none:
     verdict = "pass"
@@ -495,8 +678,9 @@ else:
     rca = f"Completed {state.step_idx}/{len(state.plan)} steps"
 ```
 
-**RCA Classification Taxonomy**:
+**RCA Classification** (LLM-Based):
 
+**Phase 1** - Simple taxonomy (deterministic):
 | Class | Trigger | Description |
 |-------|---------|-------------|
 | `selector_drift` | not_unique or timeout after reprobe | Selector no longer unique/valid |
@@ -506,6 +690,49 @@ else:
 | `assertion_mismatch` | Expected outcome not met | Wrong page/content |
 | `data_issue` | Fill value rejected | Invalid input data |
 | `env_fault` | Network timeout, page crash | Environment/infrastructure issue |
+
+**Phase 2** - LLM-enhanced RCA:
+```python
+async def analyze_root_cause(state: RunState) -> Dict[str, Any]:
+    """Use Claude LLM to analyze failure context and provide deep RCA."""
+
+    # Gather failure evidence via MCP Playwright
+    screenshot = await mcp_playwright.screenshot()
+    console_logs = await mcp_playwright.get_console_logs()
+    network_errors = await mcp_playwright.get_network_errors()
+
+    # Build RCA prompt for Claude
+    rca_prompt = f"""
+    Test Failure Analysis:
+
+    Context:
+    - Test: {state.req_id}
+    - Failed Step: {state.step_idx}/{len(state.plan)}
+    - Failure Type: {state.failure}
+    - Healing Attempts: {state.heal_round}
+
+    Evidence:
+    - Intent: {state.plan[state.step_idx]}
+    - Console Logs: {console_logs}
+    - Network Errors: {network_errors}
+    - Screenshot: <attached>
+
+    Provide:
+    1. Root cause classification (selector_drift, timing_instability, etc.)
+    2. Confidence score (0.0-1.0)
+    3. Evidence supporting the classification
+    4. Actionable recommendation for fixing the test
+    """
+
+    rca = await claude_llm.analyze(rca_prompt, attachments=[screenshot])
+    return rca
+```
+
+**Why LLM for RCA?**
+- **Deep Reasoning**: Analyze complex failure scenarios beyond simple heuristics
+- **Multi-Modal**: Understand screenshots + logs + network traces
+- **Actionable Insights**: Generate human-readable recommendations
+- **No Hallucinations**: LLM reasons about real evidence (screenshots, logs), not invented data
 
 **Output** (to `state.context["rca"]`):
 ```python

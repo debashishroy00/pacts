@@ -69,9 +69,14 @@ async def _perform_action(browser, action: str, selector: str, value: Optional[s
         return False
 
 
-async def _validate_step(browser, step: Dict[str, Any]) -> tuple[Optional[Failure], Optional[Any]]:
+async def _validate_step(browser, step: Dict[str, Any], heal_round: int = 0) -> tuple[Optional[Failure], Optional[Any]]:
     """
     Validate a step using the five_point_gate.
+
+    Args:
+        browser: BrowserClient instance
+        step: Step dict with selector, action, value
+        heal_round: Current healing round (for adaptive timeouts/tolerance)
 
     Returns:
         tuple: (Failure enum if failed, element handle if succeeded)
@@ -85,8 +90,16 @@ async def _validate_step(browser, step: Dict[str, Any]) -> tuple[Optional[Failur
     if not el:
         return Failure.timeout, None
 
-    # Run five-point gate
-    gates = await five_point_gate(browser, selector, el)
+    # Run five-point gate with healing-aware policies
+    gates = await five_point_gate(
+        browser,
+        selector,
+        el,
+        heal_round=heal_round,
+        stabilize=False,  # Executor doesn't pre-stabilize (OracleHealer does)
+        samples=3,
+        timeout_ms=2000
+    )
 
     # Check each gate and return appropriate failure
     if not gates["unique"]:
@@ -143,8 +156,8 @@ async def run(state: RunState) -> RunState:
     # Update last_selector for healing
     state.last_selector = selector
 
-    # Validate element with five_point gate
-    failure, el = await _validate_step(browser, step)
+    # Validate element with five_point gate (pass heal_round for adaptive policies)
+    failure, el = await _validate_step(browser, step, heal_round=state.heal_round)
 
     if failure:
         # Validation failed - set failure state for healing
