@@ -2,9 +2,17 @@
 
 _Last updated: 2025-10-31 00:02_
 
+---
 
-> Purpose: Lean, production-ready blueprint for Phase 1 handoff to QEA.  
-> Focus: Six-agent architecture, authoritative Planner v2, orchestration with LangGraph 1.0, memory/telemetry, and QEA readiness.  
+**📘 Document Relationship**:
+- **This document (v3.5)**: Concise quick reference for Phase 1 vision
+- **[PACTS-COMPLETE-SPECIFICATION.md](PACTS-COMPLETE-SPECIFICATION.md)**: Complete implementation specification with full code examples
+- **Use Case**: Read v3.5 for high-level understanding, use Complete Spec for building from scratch
+
+---
+
+> Purpose: Lean, production-ready blueprint for Phase 1 handoff to QEA.
+> Focus: Six-agent architecture, authoritative Planner v2, orchestration with LangGraph 1.0, memory/telemetry, and QEA readiness.
 > Style: Concise descriptions + pseudo-snippets (no long code), to be completed with code assistants (Copilot / Claude Code / Cursor).
 
 ## 1) Executive Overview
