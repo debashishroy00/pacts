@@ -3,14 +3,20 @@ Generator Agent v2.0 - Test Artifact Generation
 
 Consumes executed steps, heal events, and verdict to generate human-readable
 Playwright test files with full healing annotations and confidence metadata.
+
+Integrates with MCP Playwright for recorder-style locator suggestions when available.
 """
 from __future__ import annotations
 import os
+import logging
 from datetime import datetime
 from pathlib import Path
 from jinja2 import Environment, FileSystemLoader
 from ..graph.state import RunState
 from ..telemetry.tracing import traced
+from ..mcp.playwright_client import get_client, USE_MCP
+
+logger = logging.getLogger(__name__)
 
 
 def _sanitize_test_name(req_id: str) -> str:
@@ -32,8 +38,12 @@ def _extract_strategies_used(plan: list) -> list[str]:
     return sorted(list(strategies))
 
 
-def _enrich_steps_with_healing(plan: list, heal_events: list) -> list[dict]:
-    """Enrich plan steps with healing information."""
+async def _enrich_steps_with_healing(plan: list, heal_events: list) -> list[dict]:
+    """
+    Enrich plan steps with healing information and MCP suggestions.
+
+    Adds MCP Playwright Test recorder-style locators as comments when available.
+    """
     enriched = []
 
     for i, step in enumerate(plan):
@@ -52,6 +62,20 @@ def _enrich_steps_with_healing(plan: list, heal_events: list) -> list[dict]:
                 heal_actions = [a for a in actions if "reprobe:" in a or "reveal" in a]
                 enriched_step["heal_strategy"] = ", ".join(heal_actions) if heal_actions else "reveal"
                 break
+
+        # Add MCP Test recorder locator suggestion (if available)
+        if USE_MCP:
+            target = step.get("element") or step.get("target") or ""
+            if target:
+                try:
+                    mcp_client = get_client()
+                    suggestion = await mcp_client.suggest_locator(target)
+                    if suggestion:
+                        enriched_step["mcp_locator"] = suggestion.get("locator")
+                        enriched_step["mcp_line"] = suggestion.get("line")
+                        logger.debug(f"MCP suggestion for '{target}': {suggestion.get('locator')}")
+                except Exception as e:
+                    logger.debug(f"MCP suggest_locator failed for '{target}': {e}")
 
         enriched.append(enriched_step)
 
@@ -94,8 +118,8 @@ async def run(state: RunState) -> RunState:
     healed = any((e or {}).get("success") for e in heal_events)
     heal_rounds = state.heal_round
 
-    # Enrich steps with healing information
-    enriched_steps = _enrich_steps_with_healing(plan, state.heal_events)
+    # Enrich steps with healing information and MCP suggestions
+    enriched_steps = await _enrich_steps_with_healing(plan, state.heal_events)
 
     # Extract strategies used
     strategies_used = _extract_strategies_used(plan)

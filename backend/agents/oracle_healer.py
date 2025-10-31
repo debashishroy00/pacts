@@ -3,14 +3,20 @@ OracleHealer v2 Agent - Autonomous Self-Healing
 
 Implements reveal, reprobe, and stability-wait strategies to recover from failures.
 Max 3 healing rounds before routing to VerdictRCA.
+
+Integrates with MCP Playwright for advanced reveal/reprobe capabilities when available.
 """
 from __future__ import annotations
 import time
+import logging
 from ..graph.state import RunState, Failure
 from ..runtime.browser_manager import BrowserManager
 from ..runtime.discovery import reprobe_with_alternates
 from ..runtime.policies import five_point_gate
 from ..telemetry.tracing import traced
+from ..mcp.playwright_client import get_client, USE_MCP
+
+logger = logging.getLogger(__name__)
 
 
 @traced("oracle_healer")
@@ -69,26 +75,41 @@ async def run(state: RunState) -> RunState:
     # ==========================================
     reveal_actions = []
 
-    # Bring page to front
-    if await browser.bring_to_front():
-        reveal_actions.append("bring_to_front")
+    # PRIORITY: MCP Playwright reveal (if enabled)
+    if USE_MCP:
+        try:
+            mcp_client = get_client()
+            mcp_reveal = await mcp_client.reveal(step)
+            if mcp_reveal and mcp_reveal.get("success"):
+                mcp_actions = mcp_reveal.get("actions", [])
+                reveal_actions.extend([f"mcp_{action}" for action in mcp_actions])
+                logger.info(f"MCP reveal actions for step {state.step_idx}: {mcp_actions}")
+        except Exception as e:
+            logger.warning(f"MCP reveal failed, falling back to local: {e}")
+            # Fall through to local reveal
 
-    # Scroll into view
-    if selector and await browser.scroll_into_view(selector):
-        reveal_actions.append("scroll_into_view")
+    # FALLBACK: Local reveal actions
+    if not reveal_actions:  # Only run local if MCP didn't handle it
+        # Bring page to front
+        if await browser.bring_to_front():
+            reveal_actions.append("bring_to_front")
 
-    # Incremental scroll (for lazy-loading UIs)
-    if await browser.incremental_scroll(200):
-        reveal_actions.append("incremental_scroll")
+        # Scroll into view
+        if selector and await browser.scroll_into_view(selector):
+            reveal_actions.append("scroll_into_view")
 
-    # Dismiss overlays (modals, popups)
-    dismissed_count = await browser.dismiss_overlays()
-    if dismissed_count > 0:
-        reveal_actions.append(f"dismiss_overlays({dismissed_count})")
+        # Incremental scroll (for lazy-loading UIs)
+        if await browser.incremental_scroll(200):
+            reveal_actions.append("incremental_scroll")
 
-    # Wait for network idle
-    if await browser.wait_network_idle(1000):
-        reveal_actions.append("network_idle")
+        # Dismiss overlays (modals, popups)
+        dismissed_count = await browser.dismiss_overlays()
+        if dismissed_count > 0:
+            reveal_actions.append(f"dismiss_overlays({dismissed_count})")
+
+        # Wait for network idle
+        if await browser.wait_network_idle(1000):
+            reveal_actions.append("network_idle")
 
     heal_event["actions"].extend(reveal_actions)
 

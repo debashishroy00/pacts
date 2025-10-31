@@ -1,6 +1,10 @@
 from __future__ import annotations
 from typing import Dict, Any, Optional
 import re
+import logging
+from backend.mcp.playwright_client import get_client, USE_MCP
+
+logger = logging.getLogger(__name__)
 
 STRATEGIES = [
     "label",
@@ -97,10 +101,131 @@ STRATEGY_FUNCS = {
 }
 
 async def discover_selector(browser, intent) -> Optional[Dict[str, Any]]:
-    for name in STRATEGIES:
+    """
+    Discover selector for an intent using multiple strategies with priority order:
+
+    0. MCP Playwright (if enabled and available) - Highest priority
+    1. Explicit prefixes (css:, role:) - User override
+    2. Semantic strategies (role_name, label, placeholder)
+    3. Heuristics for common landmarks (Cart, Checkout)
+    4. Fallback strategies (relational_css, shadow_pierce, fallback_css)
+    """
+    target = (intent.get("element") or intent.get("target") or intent.get("intent") or "").strip()
+
+    # PRIORITY 0: MCP Playwright discovery (if enabled)
+    if USE_MCP:
+        try:
+            mcp_client = get_client()
+            mcp_result = await mcp_client.discover_locator(intent)
+            if mcp_result:
+                logger.info(f"MCP discovered selector for '{target}': {mcp_result.get('selector')} (strategy: {mcp_result.get('strategy')})")
+                # Convert MCP result to our format
+                return {
+                    "selector": mcp_result["selector"],
+                    "score": mcp_result.get("confidence", 0.95),
+                    "meta": {
+                        "strategy": f"mcp_{mcp_result.get('strategy', 'unknown')}",
+                        "channel": "mcp",
+                        "notes": mcp_result.get("notes", "")
+                    }
+                }
+        except Exception as e:
+            logger.warning(f"MCP discovery failed, falling back to local: {e}")
+            # Fall through to local strategies
+
+    # PRIORITY 1: Explicit CSS override (css:.shopping_cart_link)
+    if target.startswith("css:"):
+        selector = target[4:].strip()  # Remove "css:" prefix
+        # Verify selector exists
+        count = await browser.locator_count(selector)
+        if count > 0:
+            return {
+                "selector": selector,
+                "score": 0.99,
+                "meta": {"strategy": "css_override", "explicit": True}
+            }
+        return None
+
+    # PRIORITY 2: Explicit role override (role:button=Login or role:link=Cart)
+    if target.startswith("role:"):
+        role_spec = target[5:].strip()
+        if "=" in role_spec:
+            role, _, name = role_spec.partition("=")
+            role = role.strip()
+            name = name.strip()
+
+            # Use Playwright's get_by_role
+            try:
+                loc = browser.page.get_by_role(role, name=re.compile(re.escape(name), re.I))
+                count = await loc.count()
+                if count > 0:
+                    # Generate stable selector (prefer ID, then data-test, then role)
+                    el = await loc.first.element_handle()
+                    selector_id = await el.get_attribute("id")
+                    if selector_id:
+                        selector = f"#{selector_id}"
+                    else:
+                        # Fallback to role-based selector
+                        selector = f'[role="{role}"]'
+
+                    return {
+                        "selector": selector,
+                        "score": 0.98,
+                        "meta": {"strategy": "role_override", "role": role, "name": name, "explicit": True}
+                    }
+            except Exception:
+                pass
+        return None
+
+    # PRIORITY 3: Semantic strategies (existing)
+    for name in STRATEGIES[:3]:  # label, placeholder, role_name
         cand = await STRATEGY_FUNCS[name](browser, intent)
         if cand:
             return cand
+
+    # PRIORITY 4: Heuristics for common landmarks
+    target_lower = target.lower()
+
+    # Cart/Shopping Cart heuristic
+    if target_lower in {"cart", "shopping cart", "basket", "shopping_cart"}:
+        # Try common cart selectors
+        for cart_sel in [".shopping_cart_link", "a.shopping_cart_link", "[data-test='shopping-cart-link']", "#shopping_cart_container a"]:
+            count = await browser.locator_count(cart_sel)
+            if count > 0:
+                return {
+                    "selector": cart_sel,
+                    "score": 0.90,
+                    "meta": {"strategy": "heuristic", "hint": "cart_link"}
+                }
+
+    # Checkout heuristic
+    if target_lower in {"checkout", "proceed to checkout", "check out"}:
+        # Try role-based checkout button first
+        try:
+            loc = browser.page.get_by_role("button", name=re.compile(r"checkout", re.I))
+            count = await loc.count()
+            if count > 0:
+                el = await loc.first.element_handle()
+                selector_id = await el.get_attribute("id")
+                if selector_id:
+                    selector = f"#{selector_id}"
+                else:
+                    selector = "button:has-text('Checkout')"
+
+                return {
+                    "selector": selector,
+                    "score": 0.90,
+                    "meta": {"strategy": "heuristic", "hint": "checkout_button"}
+                }
+        except Exception:
+            pass
+
+    # PRIORITY 5: Fallback strategies (currently stubs)
+    for name in STRATEGIES[3:]:  # relational_css, shadow_pierce, fallback_css
+        cand = await STRATEGY_FUNCS[name](browser, intent)
+        if cand:
+            return cand
+
     return None
 
 
@@ -117,10 +242,11 @@ async def reprobe_with_alternates(
     """
     Re-discover selector using alternate strategies (healing mode).
 
-    Strategy Ladder (based on heal_round):
-        Round 1: role_name with relaxed matching
-        Round 2: label → placeholder fallbacks
-        Round 3: fallback_css heuristics + last_known_good cache
+    Priority:
+        0. MCP Playwright reprobe (if enabled) - Uses fallback chain
+        1. role_name with relaxed matching (Round 1)
+        2. label → placeholder fallbacks (Round 2)
+        3. fallback_css heuristics + last_known_good cache (Round 3)
 
     Args:
         browser: BrowserClient instance
@@ -133,7 +259,28 @@ async def reprobe_with_alternates(
     """
     hints = hints or {}
     last_known_good = hints.get("last_known_good", {})
-    element_name = intent.get("element") or intent.get("intent", "")
+    element_name = intent.get("element") or intent.get("target") or intent.get("intent", "")
+
+    # PRIORITY 0: MCP Playwright reprobe (if enabled)
+    if USE_MCP:
+        try:
+            mcp_client = get_client()
+            mcp_result = await mcp_client.reprobe(element_name, heal_round)
+            if mcp_result:
+                logger.info(f"MCP reprobe for '{element_name}' (round {heal_round}): {mcp_result.get('selector')} via {mcp_result.get('strategy')}")
+                return {
+                    "selector": mcp_result["selector"],
+                    "score": mcp_result.get("confidence", 0.85),
+                    "meta": {
+                        "strategy": f"mcp_reprobe_{mcp_result.get('strategy', 'unknown')}",
+                        "channel": "mcp",
+                        "fallback_chain": mcp_result.get("fallback_chain", []),
+                        "heal_round": heal_round
+                    }
+                }
+        except Exception as e:
+            logger.warning(f"MCP reprobe failed, falling back to local: {e}")
+            # Fall through to local strategies
 
     # Round 1: Relaxed role_name (case-insensitive, regex)
     if heal_round >= 1:

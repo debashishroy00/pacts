@@ -1,9 +1,13 @@
 from __future__ import annotations
 from typing import Dict, Any, Optional
+import logging
 from ..graph.state import RunState, Failure
 from ..runtime.browser_manager import BrowserManager
 from ..runtime.policies import five_point_gate
 from ..telemetry.tracing import traced
+from ..mcp.playwright_client import get_client, USE_MCP
+
+logger = logging.getLogger(__name__)
 
 
 async def _perform_action(browser, action: str, selector: str, value: Optional[str] = None) -> bool:
@@ -71,7 +75,7 @@ async def _perform_action(browser, action: str, selector: str, value: Optional[s
 
 async def _validate_step(browser, step: Dict[str, Any], heal_round: int = 0) -> tuple[Optional[Failure], Optional[Any]]:
     """
-    Validate a step using the five_point_gate.
+    Validate a step using MCP Playwright gates (if available) or local five_point_gate.
 
     Args:
         browser: BrowserClient instance
@@ -82,6 +86,8 @@ async def _validate_step(browser, step: Dict[str, Any], heal_round: int = 0) -> 
         tuple: (Failure enum if failed, element handle if succeeded)
     """
     selector = step.get("selector")
+    action = step.get("action", "click")
+
     if not selector:
         return Failure.timeout, None
 
@@ -90,7 +96,31 @@ async def _validate_step(browser, step: Dict[str, Any], heal_round: int = 0) -> 
     if not el:
         return Failure.timeout, None
 
-    # Run five-point gate with healing-aware policies
+    # PRIORITY: MCP Playwright actionability gates (if enabled)
+    if USE_MCP:
+        try:
+            mcp_client = get_client()
+            mcp_gates = await mcp_client.assert_actionable(selector, action)
+            if mcp_gates:
+                logger.debug(f"MCP gates for '{selector}': {mcp_gates}")
+
+                # Check each MCP gate and return appropriate failure
+                if not mcp_gates.get("unique", True):
+                    return Failure.not_unique, None
+                if not mcp_gates.get("visible", True):
+                    return Failure.not_visible, None
+                if not mcp_gates.get("enabled", True):
+                    return Failure.disabled, None
+                if not mcp_gates.get("stable_bbox", True):
+                    return Failure.unstable, None
+
+                # All MCP gates passed
+                return None, el
+        except Exception as e:
+            logger.warning(f"MCP assert_actionable failed, falling back to local gates: {e}")
+            # Fall through to local five_point_gate
+
+    # FALLBACK: Run local five-point gate with healing-aware policies
     gates = await five_point_gate(
         browser,
         selector,
@@ -172,6 +202,18 @@ async def run(state: RunState) -> RunState:
         # Action failed - mark as timeout for healing
         state.failure = Failure.timeout
         return state
+
+    # NAVIGATION AWARENESS: Wait for page to settle after actions that navigate
+    expected = step.get("expected", "")
+    if expected.startswith("navigates_to:"):
+        try:
+            # Wait for network to be idle (AJAX, page load complete)
+            await browser.page.wait_for_load_state("networkidle", timeout=5000)
+            # Additional settle time for animations/JS execution
+            await browser.page.wait_for_timeout(200)
+        except Exception:
+            # Non-blocking - continue even if navigation wait times out
+            pass
 
     # Success! Update state
     state.failure = Failure.none
