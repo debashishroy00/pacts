@@ -7,15 +7,23 @@ class BrowserClient:
         self.browser = None
         self.page = None  # type: ignore
 
-    async def start(self, headless: bool = True, project: str = "chromium"):
+    async def start(self, headless: bool = True, project: str = "chromium", slow_mo: int = 0):
+        """
+        Start the browser instance.
+
+        Args:
+            headless: Run browser in headless mode (default: True)
+            project: Browser type: chromium, firefox, webkit (default: chromium)
+            slow_mo: Slow down operations by specified milliseconds (default: 0)
+        """
         from playwright.async_api import async_playwright
         self._pw = await async_playwright().start()
         if project == "chromium":
-            self.browser = await self._pw.chromium.launch(headless=headless)
+            self.browser = await self._pw.chromium.launch(headless=headless, slow_mo=slow_mo)
         elif project == "firefox":
-            self.browser = await self._pw.firefox.launch(headless=headless)
+            self.browser = await self._pw.firefox.launch(headless=headless, slow_mo=slow_mo)
         else:
-            self.browser = await self._pw.webkit.launch(headless=headless)
+            self.browser = await self._pw.webkit.launch(headless=headless, slow_mo=slow_mo)
         self.page = await self.browser.new_page()
 
     async def goto(self, url: str, wait: str = "domcontentloaded"):

@@ -1,0 +1,50 @@
+{
+  "req_id": "REQ-LOGIN-001",
+  "suite_meta": {
+    "app": "SauceDemo",
+    "area": "Auth",
+    "priority": "P1"
+  },
+  "testcases": [
+    {
+      "tc_id": "TC-Login-Valid",
+      "title": "Valid login shows products",
+      "steps": [
+        {
+          "id": "S1",
+          "action": "fill",
+          "target": "Username",
+          "value": "{{user}}",
+          "outcome": "field_populated"
+        },
+        {
+          "id": "S2",
+          "action": "fill",
+          "target": "Password",
+          "value": "{{pass}}",
+          "outcome": "field_populated"
+        },
+        {
+          "id": "S3",
+          "action": "click",
+          "target": "Login",
+          "outcome": "navigates_to:Products"
+        }
+      ],
+      "assertions": [
+        {
+          "id": "A1",
+          "type": "page_contains_text",
+          "target": "Products"
+        }
+      ],
+      "data": [
+        {
+          "row_id": "D1",
+          "user": "standard_user",
+          "pass": "secret_sauce"
+        }
+      ]
+    }
+  ]
+}
