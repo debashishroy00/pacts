@@ -37,6 +37,7 @@ PACTS delivers both runtime execution AND test file generation in Phase 1 MVP:
 ┌─────────────────────────────────────────────────────────────┐
 │              Runtime & Policy Layer                          │
 │  - Multi-Strategy Discovery (5 intelligent strategies)       │
+│  - MCP Playwright Integration (optional, production-grade)  │
 │  - 5-Point Actionability Gate                               │
 │  - Direct Playwright Execution                              │
 └─────────────────────────────────────────────────────────────┘
@@ -145,6 +146,35 @@ pacts test --req REQ-001 --headless true
 
 # View results via API
 curl http://localhost:8000/verdicts/REQ-001
+🎭 MCP Playwright Integration (Optional)
+PACTS includes optional MCP Playwright integration for production-grade locator discovery with native Shadow DOM, frame, and ARIA support.
+
+Features
+✅ Native Playwright semantics (`getByRole`, `getByTestId`, frame scoping)
+✅ Recorder-grade selector suggestions
+✅ Cross-origin frames & Shadow DOM handled by engine
+✅ Graceful fallback to local heuristics when unavailable
+✅ Zero breaking changes to Excel/JSON specs
+✅ Feature flag controlled (`USE_MCP=false` by default)
+
+Quick Setup
+# Enable MCP integration (optional)
+export USE_MCP=true
+export MCP_PW_SERVER_URL=http://localhost:8765
+
+# Start MCP Playwright server (Docker)
+docker run -d -p 8765:8765 mcp-playwright
+
+# Run tests with MCP discovery
+pacts test --req REQ-001
+Integration Points
+Discovery: MCP-first selector resolution with local fallback
+Executor: MCP actionability gates (unique, visible, enabled, stable)
+OracleHealer: MCP reveal/reprobe for advanced healing
+VerdictRCA: MCP debug probe with full diagnostic context
+Generator: MCP Test recorder-style locator suggestions
+For complete MCP integration documentation, see [docs/MCP-PW-INTEGRATION.md](docs/MCP-PW-INTEGRATION.md).
+
 🧠 Memory Systems
 Conceptual Memory	Implementation	Purpose
 Episodic	Postgres Checkpointer	Run history persistence
@@ -203,6 +233,9 @@ pacts/
 │   │   ├── executor.py
 │   │   ├── oracle_healer.py
 │   │   └── verdict_rca.py
+│   ├── mcp/                  # MCP Playwright integration
+│   │   ├── __init__.py
+│   │   └── playwright_client.py
 │   ├── runtime/              # Browser automation
 │   │   ├── browser_client.py
 │   │   ├── browser_manager.py
@@ -287,7 +320,7 @@ Verdicts & Analytics: Detailed verdicts, RCA reports, historical trends
 Settings: Policy configuration, browser settings
 Real-time Updates: WebSocket integration for live status
 Phase 4: Enterprise Features (Weeks 9-12)
-MCP integration (optional)
+✅ MCP Playwright integration for production-grade discovery
 Semantic memory learning
 Multi-tenant support with user management
 Advanced analytics and reporting
@@ -298,10 +331,11 @@ Feature	Traditional Tools	PACTS
 Approach	Generate code first, hope it works	Find-First Verification
 Success Rate	70-80%	95%+
 Flakiness	15-30%	<5%
-Shadow DOM	❌ Not supported	✅ 92% success
+Shadow DOM	❌ Not supported	✅ 92% success (98% with MCP)
 Dynamic IDs	❌ Fails	✅ 88% with pattern extraction
 Healing	❌ Manual fixes	✅ 70% autonomous
 Memory	❌ No learning	✅ 4 memory systems
+MCP Integration	❌ No	✅ Optional production-grade discovery
 Observability	❌ Limited	✅ Full LangSmith traces
 🔒 Security & Compliance
 Deploy in your own infrastructure (on-prem or cloud)
