@@ -79,6 +79,10 @@ def build_graph():
 
     g.add_node("verdict_rca", verdict_rca_stub)
 
+    # Generator v2.0 (real implementation)
+    from ..agents import generator
+    g.add_node("generator", generator.run)
+
     # Define edges
     g.set_entry_point("planner")
     g.add_edge("planner", "pom_builder")
@@ -98,8 +102,11 @@ def build_graph():
     # After healing, go back to executor
     g.add_edge("oracle_healer", "executor")
 
-    # After verdict, end
-    g.add_edge("verdict_rca", END)
+    # After verdict, generate test artifact
+    g.add_edge("verdict_rca", "generator")
+
+    # After generation, end
+    g.add_edge("generator", END)
 
     return g.compile()
 
