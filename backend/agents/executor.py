@@ -134,6 +134,7 @@ async def run(state: RunState) -> RunState:
     """
     browser = await BrowserManager.get()
 
+    # state.plan is a property that reads from context["plan"]
     plan = state.plan
     if not plan:
         # No plan to execute

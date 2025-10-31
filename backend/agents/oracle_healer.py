@@ -159,6 +159,9 @@ async def run(state: RunState) -> RunState:
     heal_event["duration_ms"] = heal_end_ms - heal_start_ms
     heal_event["success"] = gate_ok
 
+    # CRITICAL: Ensure heal_events list exists before appending
+    if not hasattr(state, "heal_events") or state.heal_events is None:
+        state.heal_events = []
     state.heal_events.append(heal_event)
 
     # Reset failure if healing succeeded

@@ -23,5 +23,7 @@ async def run(state: RunState) -> RunState:
                 "meta": cand.get("meta", {}),
                 "confidence": cand.get("score", 0.0)
             })
+
+    # Write to context["plan"] (state.plan is a read-only property that reads this)
     state.context["plan"] = plan
     return state

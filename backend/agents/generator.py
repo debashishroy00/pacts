@@ -88,7 +88,10 @@ async def run(state: RunState) -> RunState:
     url = state.context.get("url", "about:blank")
     plan = state.context.get("plan", [])
     verdict = state.verdict or "partial"
-    healed = state.heal_round > 0
+
+    # CRITICAL: Precise healed detection (not just heal_round > 0, but actual success)
+    heal_events = getattr(state, "heal_events", []) or []
+    healed = any((e or {}).get("success") for e in heal_events)
     heal_rounds = state.heal_round
 
     # Enrich steps with healing information
