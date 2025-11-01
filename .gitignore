@@ -88,3 +88,4 @@ credentials.json
 tmp/
 temp/
 *.tmp
+/validation/scratch/

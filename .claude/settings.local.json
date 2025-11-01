@@ -13,7 +13,10 @@
       "Bash(powershell -Command \"Get-Process python -ErrorAction SilentlyContinue | Stop-Process -Force\")",
       "Bash(python -m py_compile backend/mcp/mcp_client.py)",
       "Bash(git checkout backend/mcp/mcp_client.py)",
-      "Bash(dir screenshots /b /o-d)"
+      "Bash(dir screenshots /b /o-d)",
+      "Bash(git mv MCP-PHASE-A-IMPLEMENTED.md docs/)",
+      "Bash(git mv MCP-PHASE1-FAILURE-ANALYSIS.md docs/)",
+      "Bash(git mv HITL-MCP-IMPLEMENTATION-SUMMARY.md docs/)"
     ],
     "deny": [],
     "ask": []
