@@ -16,7 +16,10 @@
       "Bash(cat gitignore)",
       "Bash(git reset HEAD~1)",
       "Bash(git rm --cached .env)",
-      "Bash(git add -A)"
+      "Bash(git add -A)",
+      "Bash(git commit -m \"v2.0: Pattern-based execution architecture with 100% success rate\n\n- Pattern registry (autocomplete, activator, SPA nav)\n- Execution helpers with multi-strategy fallbacks\n- Refactored executor (85% code reduction)\n- Enhanced discovery (fillable element filtering)\n- 5/5 production sites passing (Wikipedia, GitHub, Amazon, eBay, SauceDemo)\n- 0 heal rounds average\n- Full documentation update\n- Repository cleanup\")",
+      "Bash(playwright --version)",
+      "Bash(npx playwright --version)"
     ],
     "deny": [],
     "ask": []
