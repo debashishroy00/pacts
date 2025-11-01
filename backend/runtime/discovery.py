@@ -256,6 +256,52 @@ async def _try_role_name(browser, intent) -> Optional[Dict[str, Any]]:
             if not await _check_visibility(browser, selector, el):
                 logger.debug(f"[Discovery] Role '{r}' match '{selector}' is hidden, trying next")
                 continue  # Try next role candidate
+
+            # CRITICAL FIX: If multiple buttons match common action names (New, Save, Edit, Delete),
+            # try to disambiguate by filtering out non-primary action buttons
+            if r == "button" and normalized_name in ["new", "save", "edit", "delete", "cancel", "submit"]:
+                # Check if multiple buttons match
+                locator = browser.page.get_by_role("button", name=exact_pattern)
+                count = await locator.count()
+
+                if count > 1:
+                    logger.info(f"[Discovery] 🔍 Multiple '{normalized_name}' buttons found ({count}), disambiguating...")
+
+                    # Strategy 1: Find button in main action toolbar (not in tabs/headers)
+                    # Filter out buttons that are part of tab strips or other compound elements
+                    for i in range(count):
+                        candidate_el = await locator.nth(i).element_handle()
+                        if candidate_el:
+                            # Check if button is inside a tab element (avoid tab headers with "New" in name)
+                            parent_role = await candidate_el.evaluate("el => el.closest('[role=\"tab\"]') ? 'tab' : null")
+                            if parent_role == "tab":
+                                logger.debug(f"[Discovery] Skipping button #{i} - inside tab element")
+                                continue
+
+                            # Check if button is in a close/dismiss context (tab close buttons)
+                            aria_label = await candidate_el.get_attribute("aria-label")
+                            title = await candidate_el.get_attribute("title")
+                            if (aria_label and ("close" in aria_label.lower() or "remove" in aria_label.lower())) or \
+                               (title and ("close" in title.lower() or "remove" in title.lower())):
+                                logger.debug(f"[Discovery] Skipping button #{i} - close/remove button")
+                                continue
+
+                            # This is likely the primary action button
+                            logger.info(f"[Discovery] ✅ Found primary '{normalized_name}' button at position {i}")
+                            # Get stable selector for this specific button
+                            button_id = await candidate_el.get_attribute("id")
+                            if button_id:
+                                selector = f"#{button_id}"
+                            else:
+                                # Use nth-child selector
+                                selector = f"role=button[name*=\"{normalized_name}\"i] >> nth={i}"
+
+                            return {
+                                "selector": selector,
+                                "score": 0.95,
+                                "meta": {"strategy": "role_name_disambiguated", "role": r, "name": name, "normalized": normalized_name, "position": i}
+                            }
+
             return {
                 "selector": selector,
                 "score": 0.95,
@@ -414,17 +460,19 @@ async def discover_selector(browser, intent) -> Optional[Dict[str, Any]]:
 
     # PRIORITY 0: Dialog-scoped discovery for Salesforce App Launcher (immediate fix)
     if within:
-        logger.info(f"[Discovery] Region-scoped discovery: target='{target}' within='{within}'")
+        logger.info(f"[Discovery] ⭐ WITHIN HINT DETECTED: target='{target}' within='{within}'")
 
         try:
             # Salesforce App Launcher: Use dialog-scoped locators
             if "app launcher" in within.lower():
+                logger.info(f"[Discovery] 🔍 Searching for App Launcher dialog...")
                 # Find the App Launcher dialog
                 panel = browser.page.get_by_role("dialog", name=re.compile("app.?launcher", re.I))
                 panel_count = await panel.count()
 
+                logger.info(f"[Discovery] 📊 App Launcher dialog count: {panel_count}")
                 if panel_count > 0:
-                    logger.info(f"[Discovery] Found App Launcher dialog, using scoped search")
+                    logger.info(f"[Discovery] ✅ Found App Launcher dialog, searching within it...")
 
                     # Try robust launcher search first (works across all orgs)
                     target_lower = target.lower()
@@ -433,8 +481,9 @@ async def discover_selector(browser, intent) -> Optional[Dict[str, Any]]:
                         search = panel.get_by_role("combobox", name=re.compile("search", re.I)).first
                         search_count = await search.count()
 
+                        logger.info(f"[Discovery] 🔎 Launcher search box count: {search_count}")
                         if search_count > 0:
-                            logger.info(f"[Discovery] Using launcher search for '{target}'")
+                            logger.info(f"[Discovery] ✅ Using LAUNCHER_SEARCH for '{target}'")
                             # Return special selector that triggers launcher search in executor
                             return {
                                 "selector": f"LAUNCHER_SEARCH:{target}",
@@ -448,12 +497,14 @@ async def discover_selector(browser, intent) -> Optional[Dict[str, Any]]:
                             }
 
                     # Fallback: Direct button/link click within dialog
-                    # Try button first
+                    # Try exact match first
+                    logger.info(f"[Discovery] 🔘 Trying exact button match for '{target}'...")
                     scoped_button = panel.get_by_role("button", name=re.compile(f"^{re.escape(target)}$", re.I))
                     button_count = await scoped_button.count()
 
+                    logger.info(f"[Discovery] 📊 Exact button count: {button_count}")
                     if button_count > 0:
-                        logger.info(f"[Discovery] Found {button_count} button(s) for '{target}' in App Launcher")
+                        logger.info(f"[Discovery] ✅ Found {button_count} exact button(s) for '{target}' in App Launcher")
                         # Generate selector scoped to dialog
                         return {
                             "selector": f'role=dialog[name*="app launcher" i] >> role=button[name="{target}" i]',
@@ -465,12 +516,32 @@ async def discover_selector(browser, intent) -> Optional[Dict[str, Any]]:
                             }
                         }
 
+                    # Try partial match button
+                    logger.info(f"[Discovery] 🔘 Trying partial button match for '{target}'...")
+                    scoped_button_partial = panel.get_by_role("button", name=re.compile(re.escape(target), re.I))
+                    button_partial_count = await scoped_button_partial.count()
+
+                    logger.info(f"[Discovery] 📊 Partial button count: {button_partial_count}")
+                    if button_partial_count > 0:
+                        logger.info(f"[Discovery] ✅ Found {button_partial_count} partial button(s) for '{target}' in App Launcher")
+                        return {
+                            "selector": f'role=dialog[name*="app launcher" i] >> role=button[name*="{target}" i]',
+                            "score": 0.95,
+                            "meta": {
+                                "strategy": "dialog_scoped_button_partial",
+                                "region": within,
+                                "count": button_partial_count
+                            }
+                        }
+
                     # Try link (some orgs use links instead of buttons)
+                    logger.info(f"[Discovery] 🔗 Trying link match for '{target}'...")
                     scoped_link = panel.get_by_role("link", name=re.compile(f"^{re.escape(target)}$", re.I))
                     link_count = await scoped_link.count()
 
+                    logger.info(f"[Discovery] 📊 Link count: {link_count}")
                     if link_count > 0:
-                        logger.info(f"[Discovery] Found {link_count} link(s) for '{target}' in App Launcher")
+                        logger.info(f"[Discovery] ✅ Found {link_count} link(s) for '{target}' in App Launcher")
                         return {
                             "selector": f'role=dialog[name*="app launcher" i] >> role=link[name="{target}" i]',
                             "score": 0.97,
@@ -480,6 +551,10 @@ async def discover_selector(browser, intent) -> Optional[Dict[str, Any]]:
                                 "count": link_count
                             }
                         }
+
+                    logger.warning(f"[Discovery] ⚠️ No buttons or links found for '{target}' in App Launcher dialog!")
+                else:
+                    logger.warning(f"[Discovery] ⚠️ App Launcher dialog NOT FOUND! Panel count: {panel_count}")
 
         except Exception as e:
             logger.warning(f"[Discovery] Dialog-scoped discovery failed: {e}, falling back...")
