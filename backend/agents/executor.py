@@ -243,13 +243,26 @@ async def run(state: RunState) -> RunState:
 
             # Wait for navigation OR results to appear (Salesforce may auto-navigate)
             try:
-                # Wait for either navigation or results (5 second timeout)
-                await browser.page.wait_for_timeout(2000)
+                # Wait for navigation to complete or timeout
+                try:
+                    await browser.page.wait_for_load_state("networkidle", timeout=3000)
+                except:
+                    pass  # Continue even if timeout - navigation might still have occurred
 
                 # Check if we navigated away (Salesforce auto-navigated to target)
                 new_url = browser.page.url
-                if new_url != old_url and target.lower() in new_url.lower():
-                    print(f"[EXEC] ✅ Launcher search auto-navigated to: {target}")
+
+                # More robust navigation check: Verify we reached a specific Lightning page type
+                navigated_to_object = (
+                    new_url != old_url and (
+                        "/lightning/o/" in new_url or   # Object home (list view)
+                        "/lightning/r/" in new_url or   # Record view
+                        "/lightning/page/" in new_url   # Custom Lightning page
+                    ) and target.lower() in new_url.lower()
+                )
+
+                if navigated_to_object:
+                    print(f"[EXEC] ✅ Launcher search auto-navigated to: {target} ({new_url})")
                 else:
                     # No auto-navigation, need to click result in launcher
                     # Click the result (button or link)

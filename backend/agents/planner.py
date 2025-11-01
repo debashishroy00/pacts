@@ -2,6 +2,7 @@ from __future__ import annotations
 from typing import Dict, Any, List, Optional
 from ..graph.state import RunState
 from ..telemetry.tracing import traced
+from ..runtime.step_utils import get_step_target
 import json
 import os
 from pathlib import Path
@@ -69,8 +70,8 @@ def _add_region_hints(spec: Dict[str, Any]) -> Dict[str, Any]:
         in_app_launcher = False
 
         for i, step in enumerate(steps):
-            # Check both 'target' and 'element' fields (LLM can use either)
-            target = (step.get("target") or step.get("element") or "").lower()
+            # Use shared helper to get target (handles target/element/intent variations)
+            target = get_step_target(step).lower()
 
             # Detect App Launcher click
             if step.get("action") == "click" and "app launcher" in target:
