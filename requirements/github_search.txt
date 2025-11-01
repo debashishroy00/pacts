@@ -1,0 +1,9 @@
+Test: GitHub Repository Search
+
+URL: https://github.com
+
+Test Steps:
+1. Type "playwright" in the search box
+2. Press Enter key
+
+Expected: Search results appear

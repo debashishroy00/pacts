@@ -1,0 +1,9 @@
+Test: Amazon Product Search
+
+URL: https://www.amazon.com
+
+Test Steps:
+1. Type "laptop" in the search box
+2. Press Enter key
+
+Expected: Search results page showing laptop products

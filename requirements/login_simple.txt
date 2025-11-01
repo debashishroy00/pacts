@@ -1,0 +1,13 @@
+Test: Simple Login Test
+
+URL: https://www.saucedemo.com
+
+Test the basic login functionality.
+
+Steps:
+1. Enter username "standard_user" in the username field
+2. Enter password "secret_sauce" in the password field
+3. Click the Login button
+
+Expected Result:
+User successfully logs in and sees the Products page

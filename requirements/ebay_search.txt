@@ -1,0 +1,9 @@
+Test: eBay Product Search
+
+URL: https://www.ebay.com
+
+Test Steps:
+1. Type "macbook" in the search box
+2. Press Enter key
+
+Expected: Search results page showing MacBook listings

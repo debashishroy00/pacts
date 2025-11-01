@@ -1,5 +1,52 @@
 from __future__ import annotations
 from typing import Optional, Tuple, Any
+import re
+
+def _is_valid_css_id(id_val: str) -> bool:
+    """
+    Check if ID can be safely used in CSS selector without escaping.
+
+    CSS IDs containing special characters like parentheses, dots, or spaces
+    are technically valid HTML but create invalid CSS selectors.
+
+    Returns:
+        True if ID contains only alphanumeric, hyphens, underscores
+        False if ID contains special characters that need escaping
+    """
+    # Valid CSS ID: alphanumeric, hyphen, underscore only
+    # Invalid: spaces, parentheses, dots, brackets, etc.
+    return bool(re.match(r'^[a-zA-Z0-9_-]+$', id_val))
+
+def _escape_css_id(id_val: str) -> str:
+    """
+    Escape special characters in CSS ID selector.
+
+    While we prefer avoiding IDs with special chars, this provides
+    a fallback for edge cases.
+
+    Args:
+        id_val: Raw ID attribute value
+
+    Returns:
+        Escaped ID suitable for CSS selector
+    """
+    # Escape common special characters: . ( ) [ ] { }
+    return re.sub(r'([.()\[\]{}])', r'\\\1', id_val)
+
+def _synthesize_stable_selector(handle, role: Optional[str] = None, name_pattern: Optional[Any] = None) -> str:
+    """
+    Synthesize the most stable selector from element attributes.
+
+    Priority:
+        1. Valid ID (alphanumeric/hyphen/underscore only)
+        2. name attribute
+        3. data-test attribute (common in modern apps)
+        4. Playwright semantic locator (role + name)
+
+    This is an async function wrapper - call it synchronously with gathered attributes.
+    """
+    # This is actually synchronous - we gather attributes before calling
+    pass
 
 class BrowserClient:
     def __init__(self):
@@ -56,8 +103,14 @@ class BrowserClient:
         keys = ["x", "y", "width", "height"]
         return all(abs(boxes[i][k] - boxes[0][k]) <= tol for i in range(1, len(boxes)) for k in keys)
 
-    # --- Existing helpers (label/placeholder) omitted for brevity ---
+    # --- Discovery helpers with selector validation ---
     async def find_by_label(self, text_pattern: Any):
+        """
+        Find input element by associated label text.
+
+        Returns:
+            Tuple of (validated_selector, element_handle) or None
+        """
         assert self.page, "Call start() first"
         lab = self.page.get_by_text(text_pattern, exact=False).locator('xpath=ancestor-or-self::label[1]')
         count = await lab.count()
@@ -69,24 +122,35 @@ class BrowserClient:
         label = lab.first
         for_attr = await label.get_attribute('for')
         if for_attr:
-            sel = f"#{for_attr}"
-            el = await self.page.query_selector(sel)
-            if el:
-                return sel, el
+            # Validate ID before using as selector
+            if _is_valid_css_id(for_attr):
+                sel = f"#{for_attr}"
+                el = await self.page.query_selector(sel)
+                if el:
+                    return sel, el
         inner = label.locator('input, textarea, [role="textbox"]')
         if await inner.count() > 0:
             handle = await inner.first.element_handle()
             if handle:
+                # Try valid ID first
                 idv = await handle.get_attribute('id')
-                if idv:
+                if idv and _is_valid_css_id(idv):
                     return f"#{idv}", handle
+                # Try name attribute
                 namev = await handle.get_attribute('name')
                 if namev:
                     return f'[name="{namev}"]', handle
+                # Fallback: use Playwright's text-based selector
                 return 'xpath=.', handle
         return None
 
     async def find_by_placeholder(self, text_pattern: Any):
+        """
+        Find input element by placeholder attribute.
+
+        Returns:
+            Tuple of (validated_selector, element_handle) or None
+        """
         assert self.page, "Call start() first"
         loc = self.page.locator('[placeholder]')
         count = await loc.count()
@@ -108,18 +172,29 @@ class BrowserClient:
             if ok:
                 handle = await item.element_handle()
                 if handle:
+                    # Try valid ID first
                     idv = await handle.get_attribute('id')
-                    if idv:
+                    if idv and _is_valid_css_id(idv):
                         return f"#{idv}", handle
+                    # Try name attribute
                     namev = await handle.get_attribute('name')
                     if namev:
                         return f'[name="{namev}"]', handle
+                    # Fallback: placeholder attribute selector
                     return f'[placeholder*="{ph}"]', handle
         return None
 
     async def find_by_role(self, role: str, name_pattern: Any):
-        """Return (selector, element) for ARIA role + accessible name.
-        Uses Playwright's get_by_role under the hood and synthesizes a selector.
+        """
+        Return (selector, element) for ARIA role + accessible name.
+
+        Strategy:
+            1. Use Playwright's get_by_role to find element
+            2. Synthesize STABLE selector with validation
+            3. Prefer Playwright semantic selectors over CSS when ID has special chars
+
+        Returns:
+            Tuple of (selector_string, element_handle) or None if not found
         """
         assert self.page, "Call start() first"
         locator = self.page.get_by_role(role, name=name_pattern)
@@ -129,19 +204,35 @@ class BrowserClient:
         handle = await locator.first.element_handle()
         if not handle:
             return None
-        # Synthesize a stable-ish selector preference: id > name > [role][aria-label*=]
+
+        # Priority 1: Valid CSS ID (no special characters)
         idv = await handle.get_attribute('id')
-        if idv:
+        if idv and _is_valid_css_id(idv):
             return f"#{idv}", handle
+
+        # Priority 2: name attribute (common for form elements)
         namev = await handle.get_attribute('name')
-        if namev:
+        if namev and _is_valid_css_id(namev):
             return f'[name="{namev}"]', handle
-        # Try aria-label / text content path
-        # NOTE: aria-label may not exist; fallback to role selector with name regex marker
-        al = await handle.get_attribute('aria-label')
-        if al:
-            return f'[role="{role}"][aria-label*="{al}"]', handle
-        return f'role={role}[name~="{getattr(name_pattern, "pattern", str(name_pattern))}"]', handle
+
+        # Priority 3: data-test attribute (modern testing best practice)
+        data_test = await handle.get_attribute('data-test')
+        if data_test:
+            # data-test values are usually safe for CSS
+            return f'[data-test="{data_test}"]', handle
+
+        # Priority 4: Playwright semantic locator (BEST for buttons with special chars)
+        # This handles cases like "Test.allTheThings() T-Shirt (Red)"
+        # Playwright locators are more robust than CSS selectors
+        if isinstance(name_pattern, type(re.compile(''))):
+            # It's a regex pattern
+            name_str = name_pattern.pattern
+        else:
+            name_str = str(name_pattern)
+
+        # Use Playwright's role-based selector (NOT CSS - this is Playwright syntax)
+        # This works even with parentheses, dots, and other special characters
+        return f'role={role}[name*="{name_str}"i]', handle
 
     # ==========================================
     # HEALING HELPERS (OracleHealer v2)

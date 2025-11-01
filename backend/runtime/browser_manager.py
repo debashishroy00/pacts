@@ -23,6 +23,8 @@ class BrowserManager:
             headless = cls._config.get("headless", True)
             slow_mo = cls._config.get("slow_mo", 0)
 
+            print(f"[BrowserManager] Initializing browser: headless={headless}, slow_mo={slow_mo}")
+
             cls._client = BrowserClient()
             await cls._client.start(headless=headless, slow_mo=slow_mo)
 

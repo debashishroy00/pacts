@@ -33,16 +33,42 @@ async def run(state: RunState) -> RunState:
                 await browser.goto(url)
 
         current_step = state.plan[state.step_idx]
-        print(f"[POMBuilder] Discovering selector for step {state.step_idx}: {current_step.get('element')}")
+        current_element = current_step.get('element')
+        print(f"[POMBuilder] Discovering selector for step {state.step_idx}: {current_element}")
 
-        # Discover selector for this step
-        intent = {
-            "element": current_step.get("element"),
-            "action": current_step.get("action"),
-            "value": current_step.get("value")
-        }
+        # OPTIMIZATION: If this element matches the previous step's element, reuse its selector
+        # This handles cases like: step 1: fill "Search", step 2: press Enter on "Search"
+        if state.step_idx > 0:
+            prev_step = state.plan[state.step_idx - 1]
+            prev_element = prev_step.get('element')
+            prev_selector = prev_step.get('selector')
 
-        cand = await discover_selector(browser, intent)
+            if current_element == prev_element and prev_selector:
+                print(f"[POMBuilder] Reusing selector from previous step (same element): {prev_selector}")
+                cand = {
+                    "selector": prev_selector,
+                    "score": prev_step.get('confidence', 0.9),
+                    "meta": {
+                        **prev_step.get('meta', {}),
+                        "reused_from_step": state.step_idx - 1
+                    }
+                }
+            else:
+                # Different element - do fresh discovery
+                intent = {
+                    "element": current_element,
+                    "action": current_step.get("action"),
+                    "value": current_step.get("value")
+                }
+                cand = await discover_selector(browser, intent)
+        else:
+            # First step - always discover
+            intent = {
+                "element": current_element,
+                "action": current_step.get("action"),
+                "value": current_step.get("value")
+            }
+            cand = await discover_selector(browser, intent)
         print(f"[POMBuilder] Discovery result: {cand}")
         if cand:
             # Update ONLY the current step in the plan
@@ -61,7 +87,17 @@ async def run(state: RunState) -> RunState:
             # Clear any pre-existing failure (fresh discovery means ready to execute)
             state.failure = Failure.none
         else:
-            # Discovery failed - mark as timeout
+            # Discovery failed - set placeholder selector and mark as timeout
+            # This allows the router to send to OracleHealer instead of looping back to POMBuilder
+            updated_step = {
+                **current_step,
+                "selector": "DISCOVERY_FAILED",  # Placeholder to prevent infinite POMBuilder loop
+                "meta": {"strategy": "failed", "error": "Initial discovery returned None"},
+                "confidence": 0.0
+            }
+            plan_copy = list(state.plan)
+            plan_copy[state.step_idx] = updated_step
+            state.context["plan"] = plan_copy
             state.failure = Failure.timeout
 
         return state

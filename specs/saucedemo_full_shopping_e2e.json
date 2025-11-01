@@ -1,0 +1,140 @@
+{
+  "req_id": "REQ-E2E-SHOPPING-001",
+  "url": "https://www.saucedemo.com",
+  "suite_meta": {
+    "app": "SauceDemo",
+    "area": "E2E Shopping Flow",
+    "priority": "P0",
+    "description": "Complete end-to-end shopping: Login → Add all items → Checkout"
+  },
+  "testcases": [
+    {
+      "tc_id": "TC-E2E-Shopping-Complete",
+      "title": "Complete shopping flow - Add all items and checkout",
+      "steps": [
+        {
+          "id": "S1",
+          "action": "fill",
+          "target": "Username",
+          "value": "{{user}}",
+          "outcome": "field_populated"
+        },
+        {
+          "id": "S2",
+          "action": "fill",
+          "target": "Password",
+          "value": "{{pass}}",
+          "outcome": "field_populated"
+        },
+        {
+          "id": "S3",
+          "action": "click",
+          "target": "Login",
+          "outcome": "navigates_to:Products"
+        },
+        {
+          "id": "S4",
+          "action": "click",
+          "target": "Add to cart",
+          "value": "Sauce Labs Backpack",
+          "outcome": "button_text_changes:Remove"
+        },
+        {
+          "id": "S5",
+          "action": "click",
+          "target": "Add to cart",
+          "value": "Sauce Labs Bike Light",
+          "outcome": "button_text_changes:Remove"
+        },
+        {
+          "id": "S6",
+          "action": "click",
+          "target": "Add to cart",
+          "value": "Sauce Labs Bolt T-Shirt",
+          "outcome": "button_text_changes:Remove"
+        },
+        {
+          "id": "S7",
+          "action": "click",
+          "target": "Add to cart",
+          "value": "Sauce Labs Fleece Jacket",
+          "outcome": "button_text_changes:Remove"
+        },
+        {
+          "id": "S8",
+          "action": "click",
+          "target": "Add to cart",
+          "value": "Sauce Labs Onesie",
+          "outcome": "button_text_changes:Remove"
+        },
+        {
+          "id": "S9",
+          "action": "click",
+          "target": "css:.shopping_cart_link",
+          "outcome": "navigates_to:Cart"
+        },
+        {
+          "id": "S10",
+          "action": "click",
+          "target": "Checkout",
+          "outcome": "navigates_to:Checkout"
+        },
+        {
+          "id": "S12",
+          "action": "fill",
+          "target": "First Name",
+          "value": "{{firstName}}",
+          "outcome": "field_populated"
+        },
+        {
+          "id": "S13",
+          "action": "fill",
+          "target": "Last Name",
+          "value": "{{lastName}}",
+          "outcome": "field_populated"
+        },
+        {
+          "id": "S14",
+          "action": "fill",
+          "target": "Zip/Postal Code",
+          "value": "{{zipCode}}",
+          "outcome": "field_populated"
+        },
+        {
+          "id": "S15",
+          "action": "click",
+          "target": "Continue",
+          "outcome": "navigates_to:Overview"
+        },
+        {
+          "id": "S16",
+          "action": "click",
+          "target": "Finish",
+          "outcome": "navigates_to:Complete"
+        }
+      ],
+      "assertions": [
+        {
+          "id": "A1",
+          "type": "page_contains_text",
+          "target": "Thank you for your order"
+        },
+        {
+          "id": "A2",
+          "type": "page_contains_text",
+          "target": "Your order has been dispatched"
+        }
+      ],
+      "data": [
+        {
+          "row_id": "D1",
+          "user": "standard_user",
+          "pass": "secret_sauce",
+          "firstName": "John",
+          "lastName": "Doe",
+          "zipCode": "12345"
+        }
+      ]
+    }
+  ]
+}

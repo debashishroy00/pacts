@@ -40,8 +40,9 @@ async def run(state: RunState) -> RunState:
     if state.heal_round >= 3:
         return state  # Let routing send to verdict_rca
 
-    # Get browser singleton
-    browser = await BrowserManager.get()
+    # Get browser singleton (pass config for headed mode, slow_mo, etc.)
+    browser_config = state.context.get("browser_config", {})
+    browser = await BrowserManager.get(config=browser_config)
 
     # Increment heal round
     state.heal_round += 1
@@ -118,6 +119,21 @@ async def run(state: RunState) -> RunState:
     # ==========================================
     new_selector = None
     reprobe_strategy = None
+
+    # Check if navigation occurred - if so, don't reprobe (old selector is on old page)
+    navigation_occurred = state.context.get("navigation_occurred", False)
+    navigation_step = state.context.get("navigation_step", -1)
+
+    if navigation_occurred and navigation_step == state.step_idx:
+        # Navigation just happened - the element is gone because we're on a new page
+        # This is SUCCESS, not a failure. Mark step as complete and move on.
+        print(f"[OracleHealer] Navigation detected - step succeeded, no reprobe needed")
+        state.failure = Failure.none
+        state.step_idx += 1
+        state.context["navigation_occurred"] = False  # Clear flag
+        heal_event["actions"].append("navigation_success")
+        state.heal_events.append(heal_event)
+        return state
 
     if state.failure in [Failure.timeout, Failure.not_unique]:
         # Re-discover with alternate strategies

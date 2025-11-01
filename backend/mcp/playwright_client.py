@@ -21,7 +21,7 @@ logger = logging.getLogger(__name__)
 
 # Environment configuration
 USE_MCP = os.getenv("USE_MCP", "false").lower() == "true"
-MCP_PW_SERVER_URL = os.getenv("MCP_PW_SERVER_URL", "http://localhost:8765")
+MCP_PW_SERVER_URL = os.getenv("MCP_PLAYWRIGHT_URL", os.getenv("MCP_PW_SERVER_URL", "http://localhost:3000"))
 MCP_PW_TIMEOUT_MS = int(os.getenv("MCP_PW_TIMEOUT_MS", "5000"))
 MCP_PW_API_KEY = os.getenv("MCP_PW_API_KEY")
 

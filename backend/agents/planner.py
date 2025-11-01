@@ -1,7 +1,183 @@
 from __future__ import annotations
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Optional
 from ..graph.state import RunState
 from ..telemetry.tracing import traced
+import json
+import os
+from pathlib import Path
+
+# Load environment variables from .env file
+from dotenv import load_dotenv
+
+# Look for .env in project root (two levels up from backend/agents)
+project_root = Path(__file__).parent.parent.parent
+env_path = project_root / ".env"
+if env_path.exists():
+    load_dotenv(env_path)
+
+async def parse_natural_language_to_json(natural_language_text: str, url: Optional[str] = None) -> Dict[str, Any]:
+    """
+    Use Claude LLM to convert natural language test description into PACTS JSON format.
+
+    Args:
+        natural_language_text: Plain English test description from business analyst
+        url: Optional target URL (can be extracted from text if not provided)
+
+    Returns:
+        PACTS-compatible JSON specification with testcases, steps, data, outcomes
+    """
+    try:
+        import anthropic
+    except ImportError:
+        raise ImportError(
+            "Anthropic SDK required for natural language parsing.\n"
+            "Install with: pip install anthropic"
+        )
+
+    # Get API key from environment
+    api_key = os.getenv("ANTHROPIC_API_KEY")
+    if not api_key:
+        raise ValueError(
+            "ANTHROPIC_API_KEY environment variable required for natural language parsing.\n"
+            "Set it with: export ANTHROPIC_API_KEY=your_key_here"
+        )
+
+    client = anthropic.Anthropic(api_key=api_key)
+
+    system_prompt = """You are a test automation expert specializing in converting natural language test descriptions into structured JSON format for the PACTS (Production-Ready Autonomous Context Testing System).
+
+Your task is to parse natural language test descriptions and output valid PACTS JSON specifications.
+
+PACTS JSON FORMAT:
+{
+  "req_id": "REQ-XXX-001",
+  "url": "https://example.com",
+  "suite_meta": {
+    "app": "Application Name",
+    "area": "Feature Area",
+    "priority": "P0/P1/P2",
+    "description": "Brief description"
+  },
+  "testcases": [
+    {
+      "tc_id": "TC-XXX-001",
+      "title": "Test case title",
+      "steps": [
+        {
+          "id": "S1",
+          "action": "fill|click|select|press|check|uncheck|hover|focus",
+          "target": "Element name (e.g., Username, Login button)",
+          "value": "{{variableName}}" or "literal value",
+          "outcome": "expected_result"
+        }
+      ],
+      "data": [
+        {
+          "row_id": "D1",
+          "variableName": "value"
+        }
+      ]
+    }
+  ]
+}
+
+ACTION TYPES:
+- fill: Fill input fields
+- click: Click buttons/links
+- select: Select dropdown options
+- press: Press keyboard keys
+- check/uncheck: Toggle checkboxes
+- hover: Hover over elements
+- focus: Focus on elements
+
+OUTCOME TYPES:
+- field_populated: Input field filled
+- button_text_changes:NewText
+- navigates_to:PageName
+- page_contains_text:ExpectedText
+- element_visible:ElementName
+- element_hidden:ElementName
+
+EXTRACTION RULES:
+1. Extract URL from text or use provided URL parameter
+2. Identify test steps with actions (fill, click, etc.)
+3. Extract test data and parameterize with {{variable}} syntax
+4. Infer expected outcomes from context
+5. Generate unique IDs (REQ-XXX-001, TC-XXX-001, S1, S2, etc.)
+6. Group related steps into logical testcases
+
+TARGET NAMING RULES (CRITICAL FOR DISCOVERY):
+1. Use EXACT element text from UI (e.g., "Login" not "Login button")
+2. For buttons: Use button text only (e.g., "Submit", "Continue", "Add to cart")
+3. For input fields: Use label or placeholder text (e.g., "Username", "Email")
+4. For product actions: Use format "ProductName" in value field, "Add to cart" as target
+5. Avoid adding element type suffixes ("button", "field", "icon", "link")
+6. Keep targets concise - don't combine product name with action
+
+PRESS ACTION RULE (CRITICAL):
+- When pressing Enter on an input field, use the SAME target as the previous fill step
+- Example: If step 1 fills "Search", step 2 pressing Enter should ALSO use target="Search"
+- Do NOT create a new target for press actions on the same element
+
+EXAMPLES:
+✅ GOOD:
+  Step 1: action="fill", target="Search", value="query"
+  Step 2: action="press", target="Search", value="Enter"
+
+❌ BAD:
+  Step 1: action="fill", target="Search box", value="query"
+  Step 2: action="press", target="Enter key", value="Enter"
+
+✅ GOOD: target="Add to cart", value="Sauce Labs Backpack"
+❌ BAD: target="Sauce Labs Backpack Add to Cart"
+
+✅ GOOD: target="Login"
+❌ BAD: target="Login button"
+
+✅ GOOD: target="Continue"
+❌ BAD: target="Continue Button"
+
+Return ONLY valid JSON, no explanations."""
+
+    user_prompt = f"""Convert this natural language test description into PACTS JSON format:
+
+TEST DESCRIPTION:
+{natural_language_text}
+
+{f"TARGET URL: {url}" if url else ""}
+
+Return ONLY the JSON specification, no markdown code blocks or explanations."""
+
+    # Use Haiku 3.5 for MVP phase (cost-effective, fast)
+    # Upgrade to Sonnet later for complex test scenarios
+    message = client.messages.create(
+        model="claude-3-5-haiku-20241022",  # Haiku 3.5: 80% cheaper than Sonnet
+        max_tokens=4096,
+        system=system_prompt,
+        messages=[
+            {"role": "user", "content": user_prompt}
+        ]
+    )
+
+    # Extract JSON from response
+    response_text = message.content[0].text.strip()
+
+    # Remove markdown code blocks if present
+    if response_text.startswith("```"):
+        lines = response_text.split("\n")
+        # Remove first and last line (```json and ```)
+        response_text = "\n".join(lines[1:-1]) if len(lines) > 2 else response_text
+
+    # Parse JSON
+    try:
+        parsed_json = json.loads(response_text)
+        return parsed_json
+    except json.JSONDecodeError as e:
+        raise ValueError(
+            f"Claude returned invalid JSON: {e}\n"
+            f"Response: {response_text[:500]}"
+        )
+
 
 def parse_steps(raw_steps: List[str]) -> List[Dict[str, Any]]:
     out = []
@@ -24,18 +200,34 @@ def parse_steps(raw_steps: List[str]) -> List[Dict[str, Any]]:
 @traced("planner")
 async def run(state: RunState) -> RunState:
     """
-    Planner Agent v2: Authoritative plan generation from suite JSON or legacy raw_steps.
+    Planner Agent v3: Intelligent plan generation with LLM-powered natural language parsing.
 
     Priority:
-    1. context["suite"] - Phase 2 authoritative JSON format (testcases, steps, data, outcomes)
-    2. context["raw_steps"] - Phase 1 legacy pipe-delimited strings
+    1. context["natural_language"] - LLM parses plain English into JSON (NEW)
+    2. context["suite"] - Structured JSON format (testcases, steps, data, outcomes)
+    3. context["raw_steps"] - Legacy pipe-delimited strings
 
     Outputs:
     - state.context["intents"] - Parsed step intents for POMBuilder
     - state.context["plan"] - Initial plan structure (updated by POMBuilder with selectors)
     - state.plan - Unified plan location
     """
-    # PHASE 2: Authoritative suite JSON mode
+    # PRIORITY 1: Natural language mode (LLM-powered)
+    natural_language_text = state.context.get("natural_language")
+    if natural_language_text:
+        print("[Planner] Using LLM to parse natural language into JSON...")
+        url = state.context.get("url")
+        suite = await parse_natural_language_to_json(natural_language_text, url)
+        print(f"[Planner] LLM generated spec: {suite.get('req_id', 'N/A')}")
+        # Store the generated JSON spec
+        state.context["suite"] = suite
+        # Extract URL from LLM-generated suite if not provided by user
+        if not state.context.get("url") and suite.get("url"):
+            state.context["url"] = suite["url"]
+            print(f"[Planner] Extracted URL from LLM output: {suite['url']}")
+        # Fall through to suite processing below
+
+    # PRIORITY 2: Authoritative suite JSON mode
     suite = state.context.get("suite")
     if suite:
         plan = []

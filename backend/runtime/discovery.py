@@ -2,9 +2,80 @@ from __future__ import annotations
 from typing import Dict, Any, Optional
 import re
 import logging
-from backend.mcp.playwright_client import get_client, USE_MCP
+from backend.mcp.mcp_client import get_playwright_client, USE_MCP
 
 logger = logging.getLogger(__name__)
+
+def normalize_text(text: str) -> str:
+    """
+    Normalize text for fuzzy matching.
+
+    - Lowercase
+    - Strip whitespace
+    - Remove common suffixes (button, icon, link)
+    - Remove extra spaces
+    - Simplify special characters for matching
+    """
+    if not text:
+        return ""
+
+    # Lowercase and strip
+    normalized = text.lower().strip()
+
+    # Remove common UI element suffixes that LLMs add
+    suffixes_to_remove = [
+        ' button', ' icon', ' link', ' field', ' input',
+        ' dropdown', ' menu', ' tab', ' checkbox', ' radio'
+    ]
+
+    for suffix in suffixes_to_remove:
+        if normalized.endswith(suffix):
+            normalized = normalized[:-len(suffix)].strip()
+
+    # Simplify special characters that LLMs might omit
+    # "Zip/Postal Code" → "zip postal code" (remove slash for matching)
+    # This allows "Zip Code" to match "Zip/Postal Code"
+    normalized = normalized.replace('/', ' ')  # Remove slashes
+    normalized = normalized.replace('-', ' ')  # Remove hyphens
+
+    # Collapse multiple spaces
+    normalized = re.sub(r'\s+', ' ', normalized)
+
+    return normalized
+
+def create_fuzzy_pattern(text: str) -> re.Pattern:
+    """
+    Create a regex pattern for fuzzy matching.
+
+    Matches text with:
+    - Optional whitespace
+    - Optional common suffixes
+    - Optional extra words (for "Zip Code" → "Zip/Postal Code")
+    - Case insensitive
+
+    Example: "Login" matches "Login", "login", "  Login  ", "Login Button"
+    Example: "Zip Code" matches "Zip/Postal Code", "Zip Code", "zip code"
+    """
+    normalized = normalize_text(text)
+
+    # Escape special regex characters in the core text
+    escaped = re.escape(normalized)
+
+    # Split normalized into words to allow partial matching
+    words = normalized.split()
+
+    if len(words) > 1:
+        # Multi-word target: allow extra words between
+        # "zip code" matches "zip postal code" or "zip/postal code"
+        word_pattern = r'\s*[/\-]?\s*'.join(re.escape(w) for w in words)
+        # Allow optional extra words between: "zip.*code"
+        partial_pattern = r'\s*'.join(re.escape(w) + r'(?:\s*[/\-]?\s*\w+)?' for w in words[:-1]) + r'\s*' + re.escape(words[-1])
+        pattern = rf'\s*(?:{word_pattern}|{partial_pattern})\s*(?:button|icon|link|field|input|dropdown|menu)?'
+    else:
+        # Single word: simpler pattern
+        pattern = rf'\s*{escaped}\s*(?:button|icon|link|field|input|dropdown|menu)?'
+
+    return re.compile(pattern, re.IGNORECASE)
 
 STRATEGIES = [
     "label",
@@ -31,58 +102,282 @@ ROLE_HINTS = {
     "button": "button",
 }
 
+async def _check_visibility(browser, selector, element) -> bool:
+    """
+    Check if element is visible.
+
+    This is called during discovery to filter out hidden elements.
+    Hidden elements are skipped so next strategy can try.
+    """
+    try:
+        if element and hasattr(element, 'is_visible'):
+            return await element.is_visible()
+        # Fallback: query and check
+        el = await browser.query(selector)
+        if el:
+            return await el.is_visible()
+        return False
+    except Exception:
+        # If we can't check, assume not visible
+        return False
+
+
+async def _is_fillable_element(browser, selector, element, action: str = "fill") -> bool:
+    """
+    Check if element is appropriate for the requested action.
+
+    For fill actions: prefer input/textarea, skip select/button
+    For click actions: any element is fine
+    """
+    if action != "fill":
+        return True  # Click actions can target any element
+
+    try:
+        if element:
+            tag_name = await element.evaluate("el => el.tagName.toLowerCase()")
+        else:
+            el = await browser.query(selector)
+            if not el:
+                return False
+            tag_name = await el.evaluate("el => el.tagName.toLowerCase()")
+
+        # For fill actions, skip select dropdowns and buttons
+        # These need click, not fill
+        if tag_name in ['select', 'button']:
+            logger.debug(f"[Discovery] Skipping {tag_name} element for fill action: {selector}")
+            return False
+
+        return True
+    except Exception:
+        return True  # If we can't determine, allow it
+
+
 async def _try_label(browser, intent) -> Optional[Dict[str, Any]]:
     name = intent.get("element") or intent.get("label") or intent.get("intent")
     if not name:
         return None
-    pat = re.compile(re.escape(name), re.I)
-    found = await browser.find_by_label(pat)
-    if not found:
-        return None
-    selector, el = found
-    return {"selector": selector, "score": 0.92, "meta": {"strategy": "label", "name": name}}
+
+    normalized_name = normalize_text(name)
+    action = intent.get("action", "fill")
+
+    # Try exact match first
+    exact_pattern = re.compile(re.escape(normalized_name), re.I)
+    found = await browser.find_by_label(exact_pattern)
+    if found:
+        selector, el = found
+        # Check visibility - skip hidden elements
+        if not await _check_visibility(browser, selector, el):
+            logger.debug(f"[Discovery] Label match '{selector}' is hidden, trying next strategy")
+            return None
+        # Check if element is appropriate for action (skip select for fill)
+        if not await _is_fillable_element(browser, selector, el, action):
+            logger.debug(f"[Discovery] Label match '{selector}' is not fillable (likely select/button), trying next strategy")
+            return None
+        return {"selector": selector, "score": 0.92, "meta": {"strategy": "label", "name": name, "normalized": normalized_name}}
+
+    # Try fuzzy match
+    fuzzy_pattern = create_fuzzy_pattern(normalized_name)
+    found = await browser.find_by_label(fuzzy_pattern)
+    if found:
+        selector, el = found
+        # Check visibility - skip hidden elements
+        if not await _check_visibility(browser, selector, el):
+            logger.debug(f"[Discovery] Label fuzzy match '{selector}' is hidden, trying next strategy")
+            return None
+        # Check if element is appropriate for action
+        if not await _is_fillable_element(browser, selector, el, action):
+            logger.debug(f"[Discovery] Label fuzzy match '{selector}' is not fillable, trying next strategy")
+            return None
+        return {"selector": selector, "score": 0.90, "meta": {"strategy": "label_fuzzy", "name": name, "normalized": normalized_name}}
+
+    return None
 
 async def _try_placeholder(browser, intent) -> Optional[Dict[str, Any]]:
     name = intent.get("element") or intent.get("placeholder") or intent.get("intent")
     if not name:
         return None
-    pat = re.compile(re.escape(name), re.I)
-    found = await browser.find_by_placeholder(pat)
-    if not found:
-        return None
-    selector, el = found
-    return {"selector": selector, "score": 0.88, "meta": {"strategy": "placeholder", "name": name}}
+
+    normalized_name = normalize_text(name)
+
+    # Try exact match first
+    exact_pattern = re.compile(re.escape(normalized_name), re.I)
+    found = await browser.find_by_placeholder(exact_pattern)
+    if found:
+        selector, el = found
+        # Check visibility - skip hidden elements
+        if not await _check_visibility(browser, selector, el):
+            logger.debug(f"[Discovery] Placeholder match '{selector}' is hidden, trying next strategy")
+            return None
+        return {"selector": selector, "score": 0.88, "meta": {"strategy": "placeholder", "name": name, "normalized": normalized_name}}
+
+    # Try fuzzy match
+    fuzzy_pattern = create_fuzzy_pattern(normalized_name)
+    found = await browser.find_by_placeholder(fuzzy_pattern)
+    if found:
+        selector, el = found
+        # Check visibility - skip hidden elements
+        if not await _check_visibility(browser, selector, el):
+            logger.debug(f"[Discovery] Placeholder fuzzy match '{selector}' is hidden, trying next strategy")
+            return None
+        return {"selector": selector, "score": 0.86, "meta": {"strategy": "placeholder_fuzzy", "name": name, "normalized": normalized_name}}
+
+    return None
 
 async def _try_role_name(browser, intent) -> Optional[Dict[str, Any]]:
     name = (intent.get("element") or intent.get("intent") or "").strip()
     action = (intent.get("action") or "").lower()
     if not name:
         return None
+
+    # Normalize the target name (remove "button", "icon" etc suffixes)
+    normalized_name = normalize_text(name)
+
     # Determine role hint
     role = None
     # Prefer action mapping
     if action == "click":
         role = "button"
-    # Keyword mapping
+    # Keyword mapping (check normalized name for hints)
     for key, r in ROLE_HINTS.items():
-        if key in name.lower():
+        if key in normalized_name:
             role = r
             break
+
     # Final fallback: try common roles
     candidates = [role] if role else ["button", "link", "tab"]
-    pat = re.compile(re.escape(name), re.I)
+
+    # Try exact match first (fastest)
+    exact_pattern = re.compile(re.escape(normalized_name), re.I)
     for r in candidates:
-        found = await browser.find_by_role(r, pat)
+        found = await browser.find_by_role(r, exact_pattern)
         if found:
             selector, el = found
+            # Check visibility - skip hidden elements
+            if not await _check_visibility(browser, selector, el):
+                logger.debug(f"[Discovery] Role '{r}' match '{selector}' is hidden, trying next")
+                continue  # Try next role candidate
             return {
                 "selector": selector,
                 "score": 0.95,
-                "meta": {"strategy": "role_name", "role": r, "name": name}
+                "meta": {"strategy": "role_name", "role": r, "name": name, "normalized": normalized_name}
             }
+
+    # Try fuzzy match (handles extra whitespace, capitalization)
+    fuzzy_pattern = create_fuzzy_pattern(normalized_name)
+    for r in candidates:
+        found = await browser.find_by_role(r, fuzzy_pattern)
+        if found:
+            selector, el = found
+            # Check visibility - skip hidden elements
+            if not await _check_visibility(browser, selector, el):
+                logger.debug(f"[Discovery] Role '{r}' fuzzy match '{selector}' is hidden, trying next")
+                continue  # Try next role candidate
+            return {
+                "selector": selector,
+                "score": 0.93,  # Slightly lower confidence for fuzzy match
+                "meta": {"strategy": "role_name_fuzzy", "role": r, "name": name, "normalized": normalized_name}
+            }
+
     return None
 
 async def _try_relational_css(browser, intent) -> Optional[Dict[str, Any]]:
+    """
+    Find elements by relationship to nearby text/elements.
+
+    Example: "Add to cart" button next to "Sauce Labs Backpack" product name
+    Strategy: Find anchor text, then look for action element nearby
+    """
+    name = (intent.get("element") or intent.get("intent") or "").strip()
+    value = (intent.get("value") or "").strip()  # Optional context/product name
+    action = (intent.get("action") or "").lower()
+
+    if not name:
+        return None
+
+    # Check two patterns:
+    # Pattern 1: Combined name like "Sauce Labs Backpack Add to Cart"
+    # Pattern 2: Separate name and value like name="Add to cart", value="Sauce Labs Backpack"
+
+    action_keywords = ["add to cart", "remove", "delete", "edit", "view", "buy", "purchase", "select"]
+
+    found_action = None
+    context_text = None
+
+    normalized_name = normalize_text(name)
+
+    # First check if value field has context (Pattern 2 - preferred)
+    if value:
+        # Value contains product/item name, name contains action
+        context_text = normalize_text(value)
+        found_action = normalized_name
+        logger.info(f"[Relational] Pattern2 - Context from value='{context_text}' Action from name='{found_action}'")
+    else:
+        # Check if name contains both context and action (Pattern 1 - fallback)
+        for keyword in action_keywords:
+            if keyword in normalized_name:
+                # Split: everything before keyword = context, keyword = action
+                parts = normalized_name.split(keyword, 1)
+                if len(parts) == 2 and parts[0].strip():
+                    context_text = parts[0].strip()
+                    found_action = keyword.strip()
+                    logger.info(f"[Relational] Pattern1 - Context='{context_text}' Action='{found_action}'")
+                    break
+
+    # If we found a context + action pattern, use relational discovery
+    if context_text and found_action:
+        logger.info(f"[Relational] Context='{context_text}' Action='{found_action}'")
+
+        # Try to find button with action text that's near context text
+        # This requires browser-side script execution
+        # For now, try a simpler approach: look for unique combination in parent container
+
+        # Strategy: Find the context text, then find the action button in same container
+        try:
+            # Use Playwright to find element containing context text
+            context_locator = browser.page.locator(f"text=/{re.escape(context_text)}/i")
+            context_count = await context_locator.count()
+
+            if context_count > 0:
+                # Found context text, now find the action button relative to it
+                # Try: ancestor container with both context and action
+                for idx in range(min(context_count, 5)):  # Check up to 5 matches
+                    context_el = context_locator.nth(idx)
+
+                    # Navigate up to parent container (product card, row, etc.)
+                    parent = context_el.locator("xpath=ancestor::div[contains(@class, 'item') or contains(@class, 'product') or contains(@class, 'card') or contains(@class, 'row')][1]")
+
+                    if await parent.count() == 0:
+                        # No specific parent container, try direct parent
+                        parent = context_el.locator("xpath=..")
+
+                    # Within parent, find button with action text
+                    action_button = parent.locator(f"button:has-text('{found_action}')")
+
+                    if await action_button.count() == 0:
+                        # Try normalized action (without spaces)
+                        action_normalized = found_action.replace(" ", "-")
+                        action_button = parent.locator(f"button[id*='{action_normalized}'], button[class*='{action_normalized}']")
+
+                    if await action_button.count() > 0:
+                        # Found it! Get the selector
+                        handle = await action_button.first.element_handle()
+                        if handle:
+                            id_val = await handle.get_attribute('id')
+                            if id_val:
+                                return {
+                                    "selector": f"#{id_val}",
+                                    "score": 0.92,
+                                    "meta": {
+                                        "strategy": "relational_css",
+                                        "context": context_text,
+                                        "action": found_action,
+                                        "name": name
+                                    }
+                                }
+
+        except Exception as e:
+            logger.warning(f"[Relational] Failed: {e}")
+
     return None
 
 async def _try_shadow_pierce(browser, intent) -> Optional[Dict[str, Any]]:
@@ -115,20 +410,16 @@ async def discover_selector(browser, intent) -> Optional[Dict[str, Any]]:
     # PRIORITY 0: MCP Playwright discovery (if enabled)
     if USE_MCP:
         try:
-            mcp_client = get_client()
-            mcp_result = await mcp_client.discover_locator(intent)
-            if mcp_result:
-                logger.info(f"MCP discovered selector for '{target}': {mcp_result.get('selector')} (strategy: {mcp_result.get('strategy')})")
-                # Convert MCP result to our format
-                return {
-                    "selector": mcp_result["selector"],
-                    "score": mcp_result.get("confidence", 0.95),
-                    "meta": {
-                        "strategy": f"mcp_{mcp_result.get('strategy', 'unknown')}",
-                        "channel": "mcp",
-                        "notes": mcp_result.get("notes", "")
-                    }
-                }
+            from backend.mcp.mcp_client import discover_locator_via_mcp
+            mcp_result = await discover_locator_via_mcp(intent)
+            if mcp_result and mcp_result.get("selector"):
+                # MCP found a complete selector
+                logger.info(f"MCP discovered selector for '{target}': {mcp_result.get('selector')}")
+                return mcp_result
+            elif mcp_result:
+                # MCP confirmed element exists but didn't provide selector
+                # Continue to local strategies with confidence boost
+                logger.info(f"MCP confirmed '{target}' exists in accessibility tree")
         except Exception as e:
             logger.warning(f"MCP discovery failed, falling back to local: {e}")
             # Fall through to local strategies
@@ -264,20 +555,15 @@ async def reprobe_with_alternates(
     # PRIORITY 0: MCP Playwright reprobe (if enabled)
     if USE_MCP:
         try:
-            mcp_client = get_client()
-            mcp_result = await mcp_client.reprobe(element_name, heal_round)
+            from backend.mcp.mcp_client import discover_locator_via_mcp
+            # For reprobe, we use the same discovery but with lower confidence
+            mcp_result = await discover_locator_via_mcp(intent)
             if mcp_result:
-                logger.info(f"MCP reprobe for '{element_name}' (round {heal_round}): {mcp_result.get('selector')} via {mcp_result.get('strategy')}")
-                return {
-                    "selector": mcp_result["selector"],
-                    "score": mcp_result.get("confidence", 0.85),
-                    "meta": {
-                        "strategy": f"mcp_reprobe_{mcp_result.get('strategy', 'unknown')}",
-                        "channel": "mcp",
-                        "fallback_chain": mcp_result.get("fallback_chain", []),
-                        "heal_round": heal_round
-                    }
-                }
+                logger.info(f"MCP reprobe for '{element_name}' (round {heal_round}): {mcp_result.get('selector')}")
+                # Adjust confidence for reprobe
+                mcp_result["score"] = mcp_result.get("score", 0.85) * 0.9  # Slightly lower for reprobe
+                mcp_result["meta"]["heal_round"] = heal_round
+                return mcp_result
         except Exception as e:
             logger.warning(f"MCP reprobe failed, falling back to local: {e}")
             # Fall through to local strategies

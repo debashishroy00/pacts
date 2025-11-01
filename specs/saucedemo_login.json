@@ -1,5 +1,6 @@
 {
   "req_id": "REQ-LOGIN-001",
+  "url": "https://www.saucedemo.com",
   "suite_meta": {
     "app": "SauceDemo",
     "area": "Auth",

@@ -1,0 +1,27 @@
+Test: Complete E2E Shopping Flow on SauceDemo
+
+Target URL: https://www.saucedemo.com
+
+Priority: P0
+
+Description:
+Test the complete shopping experience from login to checkout completion.
+
+Test Steps:
+1. Login to the application with username "standard_user" and password "secret_sauce"
+2. Add "Sauce Labs Backpack" to the cart
+3. Add "Sauce Labs Bike Light" to the cart
+4. Add "Sauce Labs Bolt T-Shirt" to the cart
+5. Add "Sauce Labs Fleece Jacket" to the cart
+6. Add "Sauce Labs Onesie" to the cart
+7. Click the shopping cart icon to view cart
+8. Click the Checkout button
+9. Fill in customer information:
+   - First Name: John
+   - Last Name: Doe
+   - Zip Code: 12345
+10. Click Continue button
+11. Click Finish button to complete the order
+
+Expected Outcome:
+User should see a confirmation page with message "Thank you for your order" after completing the checkout process.

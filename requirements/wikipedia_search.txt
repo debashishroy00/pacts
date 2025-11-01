@@ -1,0 +1,9 @@
+Test: Wikipedia Article Search
+
+URL: https://en.wikipedia.org
+
+Test Steps:
+1. Fill "Artificial Intelligence" in the Search Wikipedia field
+2. Press Enter on the Search Wikipedia field
+
+Expected: Article about Artificial Intelligence is displayed

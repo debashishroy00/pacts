@@ -1,0 +1,16 @@
+Test: E2E Shopping on SauceDemo
+
+URL: https://www.saucedemo.com
+
+Test Steps:
+1. Login with username "standard_user" and password "secret_sauce"
+2. Add "Sauce Labs Backpack" to cart
+3. Add "Sauce Labs Bike Light" to cart
+4. Add "Sauce Labs Bolt T-Shirt" to cart
+5. Go to shopping cart
+6. Proceed to checkout
+7. Fill customer info: FirstName="John", LastName="Doe", ZipCode="12345"
+8. Continue to overview
+9. Finish the order
+
+Expected: Order confirmation page with "Thank you for your order" message
