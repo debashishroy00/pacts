@@ -210,35 +210,10 @@ async def run(state: RunState) -> RunState:
     action = step.get("action", "click")
     value = step.get("value")
 
-    # MCP Direct Action handling (Phase 1 - NEW!)
-    # If selector starts with MCP_, the action was already performed by MCP during discovery
-    if selector and isinstance(selector, str) and selector.startswith("MCP_"):
-        meta = step.get("meta", {})
-        if meta.get("action_completed"):
-            element_name = step.get("element", "element")
-            print(f"[EXEC] MCP already performed {action} on '{element_name}' - skipping execution")
-
-            # Take screenshot for documentation
-            screenshot_name = f"{state.req_id}_step{state.step_idx:02d}_{element_name.replace(' ', '_')}.png"
-            screenshot_path = f"screenshots/{screenshot_name}"
-            await browser.page.screenshot(path=screenshot_path)
-            print(f"[EXEC] Screenshot saved: {screenshot_path}")
-
-            # Update context
-            state.context.setdefault("screenshots", []).append(screenshot_path)
-            state.context.setdefault("executed_steps", []).append({
-                "step_idx": state.step_idx,
-                "element": element_name,
-                "action": action,
-                "strategy": "mcp_direct_action",
-                "success": True
-            })
-
-            # Mark step complete and move to next
-            state.step_idx += 1
-            state.failure = Failure.none
-            state.last_selector = selector
-            return state
+    # MCP Actions Disabled (Phase A: Discovery-Only)
+    # In Phase A, MCP only helps with discovery
+    # All actions are executed locally by Playwright
+    # Future Phase B: Enable MCP actions when attached to same browser (wsEndpoint)
 
     # HITL (Human-in-the-Loop) handling for "wait" action
     if action == "wait":

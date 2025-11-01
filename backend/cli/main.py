@@ -66,61 +66,131 @@ def print_info(text: str):
 
 def _check_mcp_status(mcp_enabled: bool) -> dict:
     """
-    Check MCP Playwright server availability.
+    Check MCP Playwright server availability with 3-probe gate.
 
-    Now checks USE_MCP environment variable first, then CLI flag.
-    USE_MCP=true in .env is sufficient - no --mcp flag needed.
+    Phase A (Discovery-Only): MCP enriches discovery; all actions executed locally.
+
+    3-Probe Gate:
+    - Probe A: Check USE_MCP environment variable
+    - Probe B: Ping MCP server (list_tools must return expected tools)
+    - Probe C: Verify NOT in actions mode (actions disabled by default)
 
     Returns:
         dict with keys:
-            - enabled: bool (user requested MCP)
-            - available: bool (MCP server is accessible)
-            - error: str or None (error message if unavailable)
-            - fallback: bool (will fall back to local heuristics)
+            - enabled: bool (USE_MCP=true)
+            - available: bool (MCP server is accessible and responding)
+            - attached: bool (MCP attached to same browser - always False in Phase A)
+            - mode: str ("discovery-only" or "actions")
+            - error: str or None
+            - fallback: bool (will fall back to local strategies)
+            - message: str (status description)
     """
-    # Try to import and check MCP client
+    import os
+
+    # Probe A: Check USE_MCP env variable
+    use_mcp = os.getenv("USE_MCP", "false").lower() == "true"
+
+    if not use_mcp and not mcp_enabled:
+        return {
+            "enabled": False,
+            "available": False,
+            "attached": False,
+            "mode": "disabled",
+            "error": None,
+            "fallback": True,
+            "message": "MCP disabled (USE_MCP=false)"
+        }
+
+    # MCP requested but env var not set
+    if not use_mcp and mcp_enabled:
+        return {
+            "enabled": False,
+            "available": False,
+            "attached": False,
+            "mode": "disabled",
+            "error": "USE_MCP environment variable not set",
+            "fallback": True,
+            "message": "MCP requested via --mcp but USE_MCP=false in .env"
+        }
+
+    # Probe B: Try to list tools from MCP server
     try:
-        from ..mcp.mcp_client import get_playwright_client, USE_MCP
+        from ..mcp.mcp_client import get_playwright_client
 
-        # Check USE_MCP env variable first (takes precedence)
-        if not USE_MCP and not mcp_enabled:
-            return {
-                "enabled": False,
-                "available": False,
-                "error": None,
-                "fallback": True,
-                "message": "MCP disabled (set USE_MCP=true in .env or use --mcp flag)"
-            }
-
-        # If USE_MCP=true OR --mcp flag, enable MCP
-        if not USE_MCP and mcp_enabled:
-            return {
-                "enabled": True,
-                "available": False,
-                "error": "USE_MCP environment variable not set",
-                "fallback": True,
-                "message": "MCP requested via --mcp but USE_MCP=false in environment"
-            }
-
-        # Try to get client and test connection
         try:
             client = get_playwright_client()
-            # Check if client can initialize (but don't actually initialize to avoid side effects)
-            # The actual initialization happens lazily when first used
+
+            # Actually test if MCP server responds
+            # This will initialize the client and list tools
+            import asyncio
+            tools = asyncio.run(client.list_tools())
+
+            # Verify we got expected Playwright tools
+            if not tools or len(tools) == 0:
+                return {
+                    "enabled": True,
+                    "available": False,
+                    "attached": False,
+                    "mode": "discovery-only",
+                    "error": "MCP server returned no tools",
+                    "fallback": True,
+                    "message": "MCP server accessible but no tools available"
+                }
+
+            # Check for expected tool names
+            tool_names = [t.get("name", "") for t in tools]
+            has_browser_tools = any(
+                name.startswith("browser_") for name in tool_names
+            )
+
+            if not has_browser_tools:
+                return {
+                    "enabled": True,
+                    "available": False,
+                    "attached": False,
+                    "mode": "discovery-only",
+                    "error": "Missing expected browser tools",
+                    "fallback": True,
+                    "message": f"MCP returned {len(tools)} tools but no browser_* tools found"
+                }
+
+            # Probe C: Check if actions mode is enabled (should be False for Phase A)
+            mcp_actions_enabled = os.getenv("MCP_ACTIONS_ENABLED", "false").lower() == "true"
+            mcp_attach_ws = os.getenv("MCP_ATTACH_WS", "false").lower() == "true"
+
+            # Phase A: Actions should be disabled
+            if mcp_actions_enabled and not mcp_attach_ws:
+                return {
+                    "enabled": True,
+                    "available": False,
+                    "attached": False,
+                    "mode": "invalid",
+                    "error": "MCP_ACTIONS_ENABLED=true but MCP_ATTACH_WS=false",
+                    "fallback": True,
+                    "message": "Cannot enable MCP actions without browser attach (wsEndpoint required)"
+                }
+
+            # Success: MCP available in discovery-only mode
+            mode = "actions" if mcp_actions_enabled else "discovery-only"
             return {
                 "enabled": True,
                 "available": True,
+                "attached": mcp_attach_ws,
+                "mode": mode,
                 "error": None,
                 "fallback": False,
-                "message": "MCP Playwright connected"
+                "message": f"MCP Playwright connected ({mode}, {len(tools)} tools)"
             }
+
         except Exception as e:
             return {
                 "enabled": True,
                 "available": False,
+                "attached": False,
+                "mode": "discovery-only",
                 "error": str(e),
                 "fallback": True,
-                "message": f"MCP server not accessible: {e}"
+                "message": f"MCP server not accessible: {str(e)[:100]}"
             }
 
     except ImportError as e:
@@ -148,14 +218,30 @@ def _display_mcp_status(status: dict):
         print_info("MCP Playwright: DISABLED")
         print(f"  → Using local heuristics (label, placeholder, role_name)")
         print(f"  → Accuracy: ~85-90% for standard web apps")
-        print(f"  → Tip: Use --mcp flag for production-grade discovery (95%+ accuracy)")
+        print(f"  → Tip: Set USE_MCP=true in .env for MCP discovery")
 
     elif status["available"]:
-        # MCP enabled and connected
-        print_success("MCP Playwright: CONNECTED")
-        print(f"  → Production-grade selector discovery enabled")
-        print(f"  → Shadow DOM, frames, and ARIA fully supported")
-        print(f"  → Expected accuracy: 95%+ across all element types")
+        # MCP enabled and connected - show mode
+        mode = status.get("mode", "unknown")
+        attached = status.get("attached", False)
+
+        if mode == "discovery-only":
+            print_success("MCP Playwright: CONNECTED (discovery-only)")
+            print(f"  → MCP enriches discovery, actions executed locally")
+            print(f"  → Shadow DOM, frames, and ARIA fully supported")
+            print(f"  → Expected accuracy: 95%+ across all element types")
+        elif mode == "actions" and attached:
+            print_success("MCP Playwright: CONNECTED (actions enabled, attached)")
+            print(f"  → MCP performs discovery AND actions")
+            print(f"  → Attached to same browser (wsEndpoint)")
+            print(f"  → Full production mode")
+        elif mode == "actions" and not attached:
+            print_warning("MCP Playwright: INVALID CONFIG")
+            print(f"  → Actions enabled but not attached to browser")
+            print(f"  → Set PLAYWRIGHT_WS_ENDPOINT or disable MCP_ACTIONS_ENABLED")
+        else:
+            print_success(f"MCP Playwright: CONNECTED ({mode})")
+            print(f"  → {status.get('message', 'Ready')}")
 
     else:
         # MCP enabled but unavailable - show fallback

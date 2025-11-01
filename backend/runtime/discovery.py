@@ -484,23 +484,14 @@ async def discover_selector(browser, intent) -> Optional[Dict[str, Any]]:
         except Exception as e:
             logger.warning(f"[Discovery] Dialog-scoped discovery failed: {e}, falling back...")
 
-    # PRIORITY 1: MCP Direct Action Tools (Phase 1 - NEW!)
-    # Use MCP to discover AND perform action in one step
-    # Handles Shadow DOM, React, complex SPAs automatically
-    if USE_MCP:
-        try:
-            from backend.mcp.mcp_client import discover_and_act_via_mcp
-            mcp_action_result = await discover_and_act_via_mcp(intent)
-            if mcp_action_result:
-                # MCP successfully performed the action
-                # Return special MCP_* selector for executor to recognize
-                logger.info(f"[Discovery] MCP direct action succeeded: {mcp_action_result.get('selector')}")
-                return mcp_action_result
-        except Exception as e:
-            logger.warning(f"[Discovery] MCP direct action failed: {e}, trying fallback...")
+    # PRIORITY 1: MCP Discovery-Only Mode (Phase A)
+    # MCP enriches discovery, all actions executed locally
+    # Check MCP_ACTIONS_ENABLED flag - must be false for Phase A
+    import os
+    mcp_actions_enabled = os.getenv("MCP_ACTIONS_ENABLED", "false").lower() == "true"
 
-    # PRIORITY 2: MCP Snapshot Discovery (legacy - keep for compatibility)
-    if USE_MCP:
+    # Phase A: MCP actions DISABLED (discovery-only)
+    if USE_MCP and not mcp_actions_enabled:
         try:
             from backend.mcp.mcp_client import discover_locator_via_mcp
             mcp_result = await discover_locator_via_mcp(intent)

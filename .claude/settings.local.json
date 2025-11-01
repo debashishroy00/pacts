@@ -10,7 +10,10 @@
       "Bash(npm search @modelcontextprotocol/server-cdp)",
       "Bash(python test_mcp_vision.py)",
       "Bash(npm view @playwright/mcp repository)",
-      "Bash(powershell -Command \"Get-Process python -ErrorAction SilentlyContinue | Stop-Process -Force\")"
+      "Bash(powershell -Command \"Get-Process python -ErrorAction SilentlyContinue | Stop-Process -Force\")",
+      "Bash(python -m py_compile backend/mcp/mcp_client.py)",
+      "Bash(git checkout backend/mcp/mcp_client.py)",
+      "Bash(dir screenshots /b /o-d)"
     ],
     "deny": [],
     "ask": []
