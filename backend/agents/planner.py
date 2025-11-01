@@ -36,8 +36,8 @@ def _normalize_hitl_actions(spec: Dict[str, Any]) -> Dict[str, Any]:
 
     for tc in spec.get("testcases", []):
         for step in tc.get("steps", []):
-            # Check if step target or value contains 2FA-related keywords
-            target_text = (step.get("target", "") + " " + str(step.get("value", ""))).lower()
+            # Check if step target/element or value contains 2FA-related keywords (check both fields)
+            target_text = (step.get("target", "") + " " + step.get("element", "") + " " + str(step.get("value", ""))).lower()
 
             # If this looks like a 2FA/verification step but isn't already "wait", fix it
             if any(token in target_text for token in twofa_tokens):
@@ -69,7 +69,8 @@ def _add_region_hints(spec: Dict[str, Any]) -> Dict[str, Any]:
         in_app_launcher = False
 
         for i, step in enumerate(steps):
-            target = (step.get("target", "") or "").lower()
+            # Check both 'target' and 'element' fields (LLM can use either)
+            target = (step.get("target") or step.get("element") or "").lower()
 
             # Detect App Launcher click
             if step.get("action") == "click" and "app launcher" in target:
@@ -82,7 +83,7 @@ def _add_region_hints(spec: Dict[str, Any]) -> Dict[str, Any]:
                 # Common Salesforce object names that appear in App Launcher
                 if any(obj in target for obj in ["accounts", "contacts", "leads", "opportunities", "cases"]):
                     step["within"] = "App Launcher"
-                    print(f"[Planner] Added within='App Launcher' to step {i}: {step.get('target')}")
+                    print(f"[Planner] ⭐ Added within='App Launcher' to step {i}: target='{target}' element='{step.get('element')}'")
 
                 # Stop scoping after clicking an object (navigates away from launcher)
                 if any(obj in target for obj in ["accounts", "contacts"]):
@@ -354,6 +355,7 @@ async def run(state: RunState) -> RunState:
                         "action": st.get("action", "click").lower(),
                         "value": st.get("value", ""),
                         "expected": st.get("outcome"),
+                        "within": st.get("within"),  # Region scope hint (added by _add_region_hints)
                         "meta": {"source": "planner_v2", "testcase": tc.get("id")}
                     }
 
