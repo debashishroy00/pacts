@@ -2,11 +2,11 @@
 PACTS Generated Test
 ====================
 Requirement ID: wikipedia_search
-Generated: 2025-10-31 20:06:38
+Generated: 2025-11-01 00:59:09
 Verdict: PASS
 
 Discovery Strategies Used:
-  - placeholder
+  - mcp_direct_action
 
 """
 
@@ -34,13 +34,13 @@ async def test_wikipedia_search():
         await page.goto("https://en.wikipedia.org")
 
         # Step 1: FILL Search Wikipedia
-        # Selector: #searchInput
-        # Strategy: placeholder, Confidence: 0.88
-        await page.locator("#searchInput").fill("Artificial Intelligence")
+        # Selector: MCP_FILL:Search Wikipedia
+        # Strategy: mcp_direct_action, Confidence: 0.95
+        await page.locator("MCP_FILL:Search Wikipedia").fill("Artificial Intelligence")
         # Step 2: PRESS Search Wikipedia
-        # Selector: #searchInput
-        # Strategy: placeholder, Confidence: 0.88
-        await page.locator("#searchInput").press("Enter")
+        # Selector: MCP_FILL:Search Wikipedia
+        # Strategy: mcp_direct_action, Confidence: 0.95
+        await page.locator("MCP_FILL:Search Wikipedia").press("Enter")
         await browser.close()
 
 

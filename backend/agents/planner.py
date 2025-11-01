@@ -51,6 +51,46 @@ def _normalize_hitl_actions(spec: Dict[str, Any]) -> Dict[str, Any]:
     return spec
 
 
+def _add_region_hints(spec: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Post-processor: Add "within" hints for region-scoped discovery.
+
+    Salesforce-specific: After clicking "App Launcher", subsequent navigation steps
+    should be scoped to the "App Launcher" dialog region.
+
+    Args:
+        spec: PACTS JSON specification
+
+    Returns:
+        Specification with "within" metadata added to relevant steps
+    """
+    for tc in spec.get("testcases", []):
+        steps = tc.get("steps", [])
+        in_app_launcher = False
+
+        for i, step in enumerate(steps):
+            target = (step.get("target", "") or "").lower()
+
+            # Detect App Launcher click
+            if step.get("action") == "click" and "app launcher" in target:
+                in_app_launcher = True
+                print(f"[Planner] Detected App Launcher click at step {i}")
+                continue
+
+            # Add "within" hint for subsequent navigation in App Launcher
+            if in_app_launcher and step.get("action") == "click":
+                # Common Salesforce object names that appear in App Launcher
+                if any(obj in target for obj in ["accounts", "contacts", "leads", "opportunities", "cases"]):
+                    step["within"] = "App Launcher"
+                    print(f"[Planner] Added within='App Launcher' to step {i}: {step.get('target')}")
+
+                # Stop scoping after clicking an object (navigates away from launcher)
+                if any(obj in target for obj in ["accounts", "contacts"]):
+                    in_app_launcher = False
+
+    return spec
+
+
 async def parse_natural_language_to_json(natural_language_text: str, url: Optional[str] = None) -> Dict[str, Any]:
     """
     Use Claude LLM to convert natural language test description into PACTS JSON format.
@@ -243,6 +283,8 @@ Return ONLY the JSON specification, no markdown code blocks or explanations."""
         parsed_json = json.loads(response_text)
         # Post-processor safety net: normalize obvious 2FA/verification steps to "wait" action
         parsed_json = _normalize_hitl_actions(parsed_json)
+        # Post-processor: add region hints for Salesforce App Launcher navigation
+        parsed_json = _add_region_hints(parsed_json)
         return parsed_json
     except json.JSONDecodeError as e:
         raise ValueError(

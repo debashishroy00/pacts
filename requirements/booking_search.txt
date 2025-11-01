@@ -1,0 +1,8 @@
+Test: Booking.com Hotel Search
+
+URL: https://www.booking.com
+
+Test Steps:
+1. Fill "Paris" in destination search box
+2. Click first autocomplete suggestion
+3. Click Search button

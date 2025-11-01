@@ -406,8 +406,100 @@ async def discover_selector(browser, intent) -> Optional[Dict[str, Any]]:
     4. Fallback strategies (relational_css, shadow_pierce, fallback_css)
     """
     target = (intent.get("element") or intent.get("target") or intent.get("intent") or "").strip()
+    within = intent.get("within")  # Region scope hint (e.g., "App Launcher")
+    # DEBUG: Log intent to see what is being passed
+    element = intent.get("element")
+    target_val = intent.get("target")
+    logger.info(f"[Discovery] Intent received: element={element} target={target_val} within={within}")
 
-    # PRIORITY 0: MCP Playwright discovery (if enabled)
+    # PRIORITY 0: Dialog-scoped discovery for Salesforce App Launcher (immediate fix)
+    if within:
+        logger.info(f"[Discovery] Region-scoped discovery: target='{target}' within='{within}'")
+
+        try:
+            # Salesforce App Launcher: Use dialog-scoped locators
+            if "app launcher" in within.lower():
+                # Find the App Launcher dialog
+                panel = browser.page.get_by_role("dialog", name=re.compile("app.?launcher", re.I))
+                panel_count = await panel.count()
+
+                if panel_count > 0:
+                    logger.info(f"[Discovery] Found App Launcher dialog, using scoped search")
+
+                    # Try robust launcher search first (works across all orgs)
+                    target_lower = target.lower()
+                    if target_lower in ["accounts", "contacts", "leads", "opportunities", "cases"]:
+                        # Use search box in launcher
+                        search = panel.get_by_role("combobox", name=re.compile("search", re.I)).first
+                        search_count = await search.count()
+
+                        if search_count > 0:
+                            logger.info(f"[Discovery] Using launcher search for '{target}'")
+                            # Return special selector that triggers launcher search in executor
+                            return {
+                                "selector": f"LAUNCHER_SEARCH:{target}",
+                                "score": 0.98,
+                                "meta": {
+                                    "strategy": "launcher_search",
+                                    "region": within,
+                                    "target": target,
+                                    "method": "search"
+                                }
+                            }
+
+                    # Fallback: Direct button/link click within dialog
+                    # Try button first
+                    scoped_button = panel.get_by_role("button", name=re.compile(f"^{re.escape(target)}$", re.I))
+                    button_count = await scoped_button.count()
+
+                    if button_count > 0:
+                        logger.info(f"[Discovery] Found {button_count} button(s) for '{target}' in App Launcher")
+                        # Generate selector scoped to dialog
+                        return {
+                            "selector": f'role=dialog[name*="app launcher" i] >> role=button[name="{target}" i]',
+                            "score": 0.97,
+                            "meta": {
+                                "strategy": "dialog_scoped_button",
+                                "region": within,
+                                "count": button_count
+                            }
+                        }
+
+                    # Try link (some orgs use links instead of buttons)
+                    scoped_link = panel.get_by_role("link", name=re.compile(f"^{re.escape(target)}$", re.I))
+                    link_count = await scoped_link.count()
+
+                    if link_count > 0:
+                        logger.info(f"[Discovery] Found {link_count} link(s) for '{target}' in App Launcher")
+                        return {
+                            "selector": f'role=dialog[name*="app launcher" i] >> role=link[name="{target}" i]',
+                            "score": 0.97,
+                            "meta": {
+                                "strategy": "dialog_scoped_link",
+                                "region": within,
+                                "count": link_count
+                            }
+                        }
+
+        except Exception as e:
+            logger.warning(f"[Discovery] Dialog-scoped discovery failed: {e}, falling back...")
+
+    # PRIORITY 1: MCP Direct Action Tools (Phase 1 - NEW!)
+    # Use MCP to discover AND perform action in one step
+    # Handles Shadow DOM, React, complex SPAs automatically
+    if USE_MCP:
+        try:
+            from backend.mcp.mcp_client import discover_and_act_via_mcp
+            mcp_action_result = await discover_and_act_via_mcp(intent)
+            if mcp_action_result:
+                # MCP successfully performed the action
+                # Return special MCP_* selector for executor to recognize
+                logger.info(f"[Discovery] MCP direct action succeeded: {mcp_action_result.get('selector')}")
+                return mcp_action_result
+        except Exception as e:
+            logger.warning(f"[Discovery] MCP direct action failed: {e}, trying fallback...")
+
+    # PRIORITY 2: MCP Snapshot Discovery (legacy - keep for compatibility)
     if USE_MCP:
         try:
             from backend.mcp.mcp_client import discover_locator_via_mcp

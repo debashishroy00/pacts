@@ -1,0 +1,8 @@
+Test: TripAdvisor Restaurant Search
+
+URL: https://www.tripadvisor.com
+
+Test Steps:
+1. Fill "New York restaurants" in Search box
+2. Press Enter key
+3. Click Restaurants filter

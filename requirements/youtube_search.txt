@@ -1,0 +1,8 @@
+Test: YouTube Video Search
+
+URL: https://www.youtube.com
+
+Test Steps:
+1. Fill "Playwright automation tutorial" in Search box
+2. Press Enter key to submit search
+3. Click first video result

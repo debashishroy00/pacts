@@ -1,0 +1,10 @@
+Test: Stack Overflow Search and Filter
+
+URL: https://stackoverflow.com
+
+Test Steps:
+1. Fill "python async await" in Search box
+2. Press Enter key
+3. Click "Newest" tab to sort by newest first
+4. Click "Unanswered" filter
+5. Verify results show unanswered questions about python async await

@@ -54,6 +54,8 @@ class MCPClient:
             if self.port:
                 args.extend(["--port", str(self.port)])
             args.append("--headless")
+            # Enable vision capability for XY coordinate fallback
+            args.extend(["--caps", "vision"])
 
             server_params = StdioServerParameters(
                 command="npx",
@@ -313,6 +315,134 @@ async def discover_locator_via_mcp(intent: Dict[str, Any]) -> Optional[Dict[str,
 
     except Exception as e:
         logger.error(f"[MCP] Discovery failed: {e}")
+        return None
+
+
+async def discover_and_act_via_mcp(intent: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    """
+    Use MCP to discover AND execute action directly (Phase 1 implementation).
+
+    This bypasses Playwright selector discovery entirely and uses MCP's
+    accessibility tree traversal to find and interact with elements.
+
+    Handles Shadow DOM, React components, and complex SPAs automatically.
+
+    Args:
+        intent: PACTS intent dict with element, action, value
+
+    Returns:
+        Dict with special MCP_* selector indicating action was performed,
+        or None if MCP couldn't handle it
+    """
+    if not USE_MCP:
+        return None
+
+    target = (intent.get("element") or intent.get("target") or "").strip()
+    action = (intent.get("action") or "").lower()
+    value = intent.get("value")
+
+    if not target or not action:
+        return None
+
+    try:
+        client = get_playwright_client()
+
+        # Determine best ref type based on context
+        # Priority: text > role > placeholder > label
+        ref_type = "text"  # Most universal
+
+        # Try to execute action directly via MCP
+        result = None
+        tool_name = None
+
+        if action == "click":
+            tool_name = "browser_click"
+            result = await client.call_tool("browser_click", {
+                "element": target,
+                "ref": ref_type
+            })
+
+        elif action == "fill":
+            tool_name = "browser_type"
+            result = await client.call_tool("browser_type", {
+                "element": target,
+                "ref": ref_type,
+                "text": value or "",
+                "submit": False
+            })
+
+        elif action == "press":
+            # For press actions, try typing first, then use keyboard
+            if value and value.lower() == "enter":
+                tool_name = "browser_press_key"
+                result = await client.call_tool("browser_press_key", {
+                    "key": "Enter"
+                })
+            else:
+                tool_name = "browser_type"
+                result = await client.call_tool("browser_type", {
+                    "element": target,
+                    "ref": ref_type,
+                    "text": value or "",
+                    "submit": True if value and value.lower() == "enter" else False
+                })
+
+        elif action == "select":
+            tool_name = "browser_select_option"
+            result = await client.call_tool("browser_select_option", {
+                "element": target,
+                "ref": ref_type,
+                "values": [value] if value else []
+            })
+
+        elif action == "hover":
+            tool_name = "browser_hover"
+            result = await client.call_tool("browser_hover", {
+                "element": target,
+                "ref": ref_type
+            })
+
+        # Check if MCP successfully performed the action
+        if result:
+            # MCP tools return result with content array
+            # Success if no error in response
+            has_error = False
+            if isinstance(result, dict):
+                if result.get("error"):
+                    has_error = True
+                    logger.warning(f"[MCP] Action failed: {result.get('error')}")
+                elif result.get("content"):
+                    # Check content for error messages
+                    content = result.get("content", [])
+                    for item in content:
+                        if isinstance(item, dict):
+                            text = item.get("text", "")
+                            if "error" in text.lower() or "failed" in text.lower():
+                                has_error = True
+                                break
+
+            if not has_error:
+                logger.info(f"[MCP] Successfully performed {action} on '{target}' using {tool_name}")
+
+                # Return special selector indicating MCP already performed the action
+                return {
+                    "selector": f"MCP_{action.upper()}:{target}",
+                    "score": 0.95,
+                    "meta": {
+                        "strategy": "mcp_direct_action",
+                        "tool": tool_name,
+                        "element": target,
+                        "action": action,
+                        "ref_type": ref_type,
+                        "action_completed": True  # Critical flag for executor
+                    }
+                }
+
+        logger.debug(f"[MCP] Could not perform {action} on '{target}' - no error but no success confirmation")
+        return None
+
+    except Exception as e:
+        logger.warning(f"[MCP] Action tool failed: {e}")
         return None
 
 

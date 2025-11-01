@@ -58,7 +58,8 @@ async def run(state: RunState) -> RunState:
                 intent = {
                     "element": current_element,
                     "action": current_step.get("action"),
-                    "value": current_step.get("value")
+                    "value": current_step.get("value"),
+                    "within": current_step.get("within")  # Region scope hint
                 }
                 cand = await discover_selector(browser, intent)
         else:
@@ -66,7 +67,8 @@ async def run(state: RunState) -> RunState:
             intent = {
                 "element": current_element,
                 "action": current_step.get("action"),
-                "value": current_step.get("value")
+                "value": current_step.get("value"),
+                "within": current_step.get("within")  # Region scope hint
             }
             cand = await discover_selector(browser, intent)
         print(f"[POMBuilder] Discovery result: {cand}")

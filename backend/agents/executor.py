@@ -1,6 +1,7 @@
 from __future__ import annotations
 from typing import Dict, Any, Optional
 import logging
+import re
 from ..graph.state import RunState, Failure
 from ..runtime.browser_manager import BrowserManager
 from ..runtime.policies import five_point_gate
@@ -209,6 +210,36 @@ async def run(state: RunState) -> RunState:
     action = step.get("action", "click")
     value = step.get("value")
 
+    # MCP Direct Action handling (Phase 1 - NEW!)
+    # If selector starts with MCP_, the action was already performed by MCP during discovery
+    if selector and isinstance(selector, str) and selector.startswith("MCP_"):
+        meta = step.get("meta", {})
+        if meta.get("action_completed"):
+            element_name = step.get("element", "element")
+            print(f"[EXEC] MCP already performed {action} on '{element_name}' - skipping execution")
+
+            # Take screenshot for documentation
+            screenshot_name = f"{state.req_id}_step{state.step_idx:02d}_{element_name.replace(' ', '_')}.png"
+            screenshot_path = f"screenshots/{screenshot_name}"
+            await browser.page.screenshot(path=screenshot_path)
+            print(f"[EXEC] Screenshot saved: {screenshot_path}")
+
+            # Update context
+            state.context.setdefault("screenshots", []).append(screenshot_path)
+            state.context.setdefault("executed_steps", []).append({
+                "step_idx": state.step_idx,
+                "element": element_name,
+                "action": action,
+                "strategy": "mcp_direct_action",
+                "success": True
+            })
+
+            # Mark step complete and move to next
+            state.step_idx += 1
+            state.failure = Failure.none
+            state.last_selector = selector
+            return state
+
     # HITL (Human-in-the-Loop) handling for "wait" action
     if action == "wait":
         print(f"[EXEC] HITL step detected: {step.get('element', 'Manual intervention')}")
@@ -216,6 +247,70 @@ async def run(state: RunState) -> RunState:
         # Increment step_idx so when we return from human_wait, we proceed to next step
         state.step_idx += 1
         return state
+
+    # Salesforce App Launcher search fallback
+    if selector and selector.startswith("LAUNCHER_SEARCH:"):
+        target = selector.split(":", 1)[1]
+        print(f"[EXEC] Launcher search detected for: {target}")
+
+        try:
+            # Find App Launcher dialog
+            panel = browser.page.get_by_role("dialog", name=re.compile("app.?launcher", re.I))
+
+            # Use search box
+            search = panel.get_by_role("combobox", name=re.compile("search", re.I)).first
+            await search.fill(target)
+            await browser.page.keyboard.press("Enter")
+
+            # Wait a moment for results
+            await browser.page.wait_for_timeout(1000)
+
+            # Click the result (button or link)
+            result_button = panel.get_by_role("button", name=re.compile(f"^{re.escape(target)}$", re.I))
+            button_count = await result_button.count()
+
+            if button_count > 0:
+                await result_button.first.click()
+            else:
+                # Try link
+                result_link = panel.get_by_role("link", name=re.compile(f"^{re.escape(target)}$", re.I))
+                await result_link.first.click()
+
+            print(f"[EXEC] Launcher search succeeded for: {target}")
+
+            # Mark step as complete
+            state.step_idx += 1
+            state.failure = Failure.none
+            if "executed_steps" not in state.context:
+                state.context["executed_steps"] = []
+            state.context["executed_steps"].append({
+                "step_idx": state.step_idx - 1,
+                "selector": selector,
+                "action": action,
+                "method": "launcher_search"
+            })
+
+            # Take screenshot
+            try:
+                import os
+                from pathlib import Path
+                screenshots_dir = Path("screenshots")
+                screenshots_dir.mkdir(exist_ok=True)
+                req_id = state.req_id or "unknown"
+                step_num = state.step_idx - 1
+                element_name = step.get("element", target).replace(" ", "_").replace("/", "_")
+                screenshot_path = screenshots_dir / f"{req_id}_step{step_num:02d}_{element_name}.png"
+                await browser.page.screenshot(path=str(screenshot_path))
+                print(f"[EXEC] Screenshot saved: {screenshot_path}")
+            except Exception:
+                pass
+
+            return state
+
+        except Exception as e:
+            print(f"[EXEC] Launcher search failed: {e}")
+            state.failure = Failure.timeout
+            return state
 
     # Update last_selector for healing
     state.last_selector = selector

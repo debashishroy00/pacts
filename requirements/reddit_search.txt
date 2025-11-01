@@ -1,0 +1,10 @@
+Test: Reddit Search and Navigation
+
+URL: https://www.reddit.com
+
+Test Steps:
+1. Fill "programming" in Search box
+2. Press Enter key
+3. Click "Communities" tab
+4. Click "r/programming" subreddit link
+5. Click "Hot" tab to view hot posts
