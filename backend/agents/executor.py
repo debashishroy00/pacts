@@ -209,6 +209,14 @@ async def run(state: RunState) -> RunState:
     action = step.get("action", "click")
     value = step.get("value")
 
+    # HITL (Human-in-the-Loop) handling for "wait" action
+    if action == "wait":
+        print(f"[EXEC] HITL step detected: {step.get('element', 'Manual intervention')}")
+        state.requires_human = True
+        # Increment step_idx so when we return from human_wait, we proceed to next step
+        state.step_idx += 1
+        return state
+
     # Update last_selector for healing
     state.last_selector = selector
 

@@ -1,0 +1,25 @@
+Test: Salesforce Login with Manual 2FA + Account/Contact Creation
+
+URL: https://orgfarm-9a1de3d5e8-dev-ed.develop.my.salesforce.com
+
+Test Steps:
+1. Fill username "debashishroy00106@agentforce.com" in Username field
+2. Fill password "Pink1234567" in Password field
+3. Click "Log In" button
+4. PAUSE: Wait 30 seconds for manual 2FA verification
+5. Click "Accounts" tab
+6. Click "New" button
+7. Fill "Account Name" with "Acme Corporation"
+8. Click "Save" button
+9. Click "Contacts" tab
+10. Click "New" button
+11. Fill "First Name" with "Jane"
+12. Fill "Last Name" with "Smith"
+13. Click "Save" button
+
+Expected: Successfully login with 2FA, navigate to Accounts/Contacts, and create new records
+
+Notes:
+- Step 4 is manual intervention point for 2FA code entry
+- Use --slow-mo 3000 to give time for manual 2FA
+- Success indicators: Account created, Contact created

@@ -20,6 +20,8 @@ class RunState(BaseModel):
     last_selector: Optional[str] = None
     verdict: Optional[str] = None
     heal_events: List[Dict[str, Any]] = Field(default_factory=list)  # OracleHealer v2 tracking
+    human_input: Optional[str] = None  # For HITL (Human-in-the-Loop) responses
+    requires_human: bool = False  # Flag indicating human intervention needed
 
     @property
     def plan(self) -> List[Dict[str, Any]]:

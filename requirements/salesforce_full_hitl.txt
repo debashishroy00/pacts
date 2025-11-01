@@ -1,0 +1,29 @@
+Test: Salesforce Complete Workflow with HITL 2FA
+
+URL: https://orgfarm-9a1de3d5e8-dev-ed.develop.my.salesforce.com
+
+Test Steps:
+1. Fill username "debashishroy00106@agentforce.com" in Username field
+2. Fill password "Pink12345678" in Password field
+3. Click "Log In" button
+4. WAIT for manual 2FA verification entry
+5. Click App Launcher button
+6. Click "Accounts" link
+7. Click "New" button
+8. Fill "Account Name" with "PACTS Test Corporation"
+9. Click "Save" button
+10. Click App Launcher button
+11. Click "Contacts" link
+12. Click "New" button
+13. Fill "First Name" with "Jane"
+14. Fill "Last Name" with "Doe"
+15. Click "Save" button
+
+Expected: Successfully login with 2FA, create Account and Contact records
+
+Notes:
+- Step 4 is HITL intervention point for manual 2FA code entry
+- Test validates full end-to-end workflow including authentication
+- Tests App Launcher navigation pattern in Salesforce
+- Tests CRUD operations (Create Account, Create Contact)
+- Browser will pause at step 4 waiting for user to enter 2FA code

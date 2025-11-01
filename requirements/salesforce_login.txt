@@ -1,0 +1,14 @@
+Test: Salesforce Login with 2FA
+
+URL: https://orgfarm-9a1de3d5e8-dev-ed.develop.my.salesforce.com
+
+Test Steps:
+1. Fill username "debashishroy00106@agentforce.com" in Username field
+2. Fill password "Pink12345678" in Password field
+3. Click "Log In" button
+
+Expected: Successfully logged into Salesforce (may require 2FA verification)
+
+Notes:
+- May trigger 2FA - Human-in-the-Loop will handle verification
+- Success indicator: Salesforce Home page or App Launcher visible

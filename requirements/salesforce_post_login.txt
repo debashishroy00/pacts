@@ -1,0 +1,26 @@
+Test: Salesforce - Create Account and Contact (Post-Login)
+
+URL: https://orgfarm-9a1de3d5e8-dev-ed.develop.my.salesforce.com
+
+Prerequisites: User MUST be already logged in to Salesforce
+
+Test Steps:
+1. Click App Launcher button (waffle icon at top-left)
+2. Click "Accounts" in the menu
+3. Click "New" button
+4. Fill "Account Name" with "PACTS Test Corp"
+5. Click "Save" button
+6. Click App Launcher button
+7. Click "Contacts" in the menu
+8. Click "New" button
+9. Fill "First Name" with "Test"
+10. Fill "Last Name" with "User"
+11. Click "Save" button
+
+Expected: Successfully create Account and Contact records
+
+Notes:
+- Run this AFTER manually completing 2FA login
+- Assumes Salesforce home page is already loaded
+- Tests navigation via App Launcher
+- Tests basic CRUD operations

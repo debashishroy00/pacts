@@ -9,11 +9,17 @@ def executor_router(state: RunState) -> str:
     Lazy discovery routing: decide what executor needs next.
 
     Returns:
+        "human_wait" if current step requires human intervention (HITL)
         "pom_builder" if current step needs selector discovery
         "oracle_healer" if failure detected and healing attempts remain
         "verdict_rca" if done or max healing attempts reached
         "executor" if ready to execute next step
     """
+    # Check if human intervention is required (HITL)
+    if state.requires_human:
+        print(f"[ROUTER] -> human_wait (HITL: manual intervention required)")
+        return "human_wait"
+
     # Check if we've completed all steps
     if state.step_idx >= len(state.plan):
         print(f"[ROUTER] All steps complete ({state.step_idx}/{len(state.plan)}) -> verdict_rca")
@@ -143,6 +149,94 @@ def build_graph():
     from ..agents import generator
     g.add_node("generator", generator.run)
 
+    # HITL (Human-in-the-Loop) wait node for manual intervention
+    async def human_wait_node(state: RunState) -> RunState:
+        """
+        HITL node: Pause execution and wait for human intervention.
+        Used for 2FA, CAPTCHA, or other manual verification steps.
+
+        Non-TTY safe: Uses file/env signals instead of stdin input().
+        """
+        import logging
+        import asyncio
+        import os
+        import time
+        from pathlib import Path
+        logger = logging.getLogger(__name__)
+
+        # Ensure hitl/ directory exists
+        hitl_dir = Path("hitl")
+        hitl_dir.mkdir(exist_ok=True)
+
+        # Clear old signal files
+        continue_file = hitl_dir / "continue.ok"
+        code_file = hitl_dir / "2fa_code.txt"
+        if continue_file.exists():
+            continue_file.unlink()
+        if code_file.exists():
+            code_file.unlink()
+
+        current_step = state.plan[state.step_idx - 1] if state.step_idx > 0 else {}
+        step_name = current_step.get("element", "Manual intervention")
+
+        print(f"\n{'='*70}")
+        print(f"⏸️  HUMAN INTERVENTION REQUIRED (HITL)")
+        print(f"{'='*70}")
+        print(f"Previous Step: {step_name}")
+        print(f"\n📋 Instructions:")
+        print(f"  1. Browser window is open - complete the manual action")
+        print(f"  2. For 2FA: Enter code in browser, click Verify")
+        print(f"\n🔄 To resume automation, choose ONE method:")
+        print(f"  Method 1: Set environment variable PACTS_2FA_CODE=<code>")
+        print(f"  Method 2: Create file hitl/2fa_code.txt with code")
+        print(f"  Method 3: Create empty file hitl/continue.ok")
+        print(f"\n⏱️  Waiting up to 15 minutes for signal...")
+        print(f"{'='*70}\n")
+
+        # Wait for signal (env var, file, or timeout)
+        timeout_seconds = 900  # 15 minutes
+        start_time = time.time()
+
+        while time.time() - start_time < timeout_seconds:
+            # Check env var first (highest priority)
+            code_from_env = os.getenv("PACTS_2FA_CODE")
+            if code_from_env:
+                print(f"[HITL] ✅ Got 2FA code from environment variable")
+                state.human_input = code_from_env
+                break
+
+            # Check for code file
+            if code_file.exists():
+                code_text = code_file.read_text().strip()
+                print(f"[HITL] ✅ Got 2FA code from hitl/2fa_code.txt")
+                state.human_input = code_text
+                code_file.unlink()  # Clean up
+                break
+
+            # Check for continue signal
+            if continue_file.exists():
+                print(f"[HITL] ✅ Got continue signal from hitl/continue.ok")
+                state.human_input = "manual_complete"
+                continue_file.unlink()  # Clean up
+                break
+
+            # Poll every 0.5 seconds
+            await asyncio.sleep(0.5)
+
+        else:
+            # Timeout reached
+            logger.warning(f"[HITL] ⏱️  Timeout reached ({timeout_seconds}s), continuing anyway...")
+            state.human_input = "timeout"
+
+        print(f"\n✅ Manual intervention completed, resuming automation...\n")
+
+        # Reset HITL flag
+        state.requires_human = False
+
+        return state
+
+    g.add_node("human_wait", human_wait_node)
+
     # NEW FLOW: Lazy discovery architecture
     g.set_entry_point("planner")
     g.add_edge("planner", "executor")  # Skip bulk discovery, go straight to executor
@@ -152,6 +246,7 @@ def build_graph():
         "executor",
         executor_router,
         {
+            "human_wait": "human_wait",  # Pause for human intervention (HITL)
             "pom_builder": "pom_builder",  # Need selector for current step
             "executor": "executor",  # Loop back to execute next step
             "oracle_healer": "oracle_healer",  # Heal on failure
@@ -164,6 +259,9 @@ def build_graph():
 
     # After healing, go back to executor
     g.add_edge("oracle_healer", "executor")
+
+    # After human intervention, return to executor to continue
+    g.add_edge("human_wait", "executor")
 
     # After verdict, generate test artifact
     g.add_edge("verdict_rca", "generator")

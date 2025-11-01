@@ -1,0 +1,31 @@
+Test: Salesforce - Navigate and Create Account & Contact
+
+URL: https://orgfarm-9a1de3d5e8-dev-ed.develop.my.salesforce.com
+
+Prerequisites: User must be logged in to Salesforce
+
+Test Steps:
+1. Click "App Launcher" icon (waffle/grid icon)
+2. Type "Accounts" in search
+3. Click "Accounts" option
+4. Click "New" button
+5. Fill "Account Name" with "PACTS Test Account"
+6. Fill "Phone" with "555-0123"
+7. Fill "Website" with "https://pacts-test.com"
+8. Click "Save" button
+9. Click "App Launcher" icon
+10. Type "Contacts" in search
+11. Click "Contacts" option
+12. Click "New" button
+13. Fill "First Name" with "John"
+14. Fill "Last Name" with "Smith"
+15. Fill "Email" with "john.smith@pacts-test.com"
+16. Click "Save" button
+
+Expected: Successfully create one Account and one Contact in Salesforce
+
+Notes:
+- This test assumes user is already logged in
+- Tests full navigation and CRUD operations
+- Validates App Launcher navigation pattern
+- Validates form filling and save operations

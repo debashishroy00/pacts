@@ -1,0 +1,17 @@
+Test: Salesforce Login with Manual 2FA Entry
+
+URL: https://orgfarm-9a1de3d5e8-dev-ed.develop.my.salesforce.com
+
+Test Steps:
+1. Fill username "debashishroy00106@agentforce.com" in Username field
+2. Fill password "Pink12345678" in Password field
+3. Click "Log In" button
+4. Wait for page load (2FA verification page will appear - MANUAL ENTRY REQUIRED)
+
+Expected: 2FA verification page appears, ready for manual code entry
+
+Notes:
+- HITL Test: Requires human to manually enter 2FA code
+- Keep browser window open
+- After entering code and clicking Verify, note the landing page
+- Use --slow-mo 2000 to allow time for manual interaction

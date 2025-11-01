@@ -1,0 +1,48 @@
+
+[1m[94m======================================================================[0m
+[1m[94mPACTS - Autonomous Test Execution[0m
+[1m[94m======================================================================[0m
+
+Step 1: Loading requirement specification...
+📄 Found requirement: specs\salesforce_login_manual.json
+
+  Requirement ID: salesforce_login_manual
+
+  Test Cases: 0
+  Total Steps: 0
+
+  Target URL: https://orgfarm-9a1de3d5e8-dev-ed.develop.my.salesforce.com
+  Mode: HEADED (visible)
+  Slow Motion: 2000ms
+
+Step 2: Initializing PACTS pipeline...
+
+[1mDiscovery Engine Status:[0m
+[92m✓ MCP Playwright: CONNECTED[0m
+  → Production-grade selector discovery enabled
+  → Shadow DOM, frames, and ARIA fully supported
+  → Expected accuracy: 95%+ across all element types
+
+
+Step 3: Executing test pipeline...
+  Pipeline: Planner → POMBuilder → Executor ↔ OracleHealer → VerdictRCA → Generator
+
+[BrowserManager] Initializing browser: headless=False, slow_mo=2000
+[ROUTER] All steps complete (0/0) -> verdict_rca
+
+[1m[94m======================================================================[0m
+[1m[94mEXECUTION RESULTS[0m
+[1m[94m======================================================================[0m
+
+[92m✓ Verdict: PASS[0m
+
+  Steps Executed: 0
+  Heal Rounds: 0
+  Heal Events: 0
+
+[92m✓ Test artifact generated: generated_tests\test_salesforce_login_manual.py[0m
+
+  Root Cause Analysis:
+    All steps executed successfully
+
+[92m✓ Test execution completed successfully![0m

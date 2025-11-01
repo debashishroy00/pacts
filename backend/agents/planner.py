@@ -15,6 +15,42 @@ env_path = project_root / ".env"
 if env_path.exists():
     load_dotenv(env_path)
 
+def _normalize_hitl_actions(spec: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Post-processor safety net: Normalize obvious 2FA/CAPTCHA/verification steps to "wait" action.
+
+    Prevents LLM from emitting "click" on verification banners/labels.
+    Rewrites any step with 2FA-related keywords to use action="wait".
+
+    Args:
+        spec: PACTS JSON specification
+
+    Returns:
+        Normalized specification with HITL steps corrected
+    """
+    twofa_tokens = {
+        "2fa", "mfa", "otp", "verify", "verification", "authenticator",
+        "security key", "email code", "sms", "captcha", "one-time",
+        "multi-factor", "two-factor", "security code"
+    }
+
+    for tc in spec.get("testcases", []):
+        for step in tc.get("steps", []):
+            # Check if step target or value contains 2FA-related keywords
+            target_text = (step.get("target", "") + " " + str(step.get("value", ""))).lower()
+
+            # If this looks like a 2FA/verification step but isn't already "wait", fix it
+            if any(token in target_text for token in twofa_tokens):
+                if step.get("action") != "wait":
+                    original_action = step.get("action")
+                    step["action"] = "wait"
+                    step["value"] = "manual"
+                    step["outcome"] = "human_completes_verification"
+                    print(f"[Planner] Normalized HITL step: '{step.get('target')}' ({original_action} → wait)")
+
+    return spec
+
+
 async def parse_natural_language_to_json(natural_language_text: str, url: Optional[str] = None) -> Dict[str, Any]:
     """
     Use Claude LLM to convert natural language test description into PACTS JSON format.
@@ -82,6 +118,8 @@ PACTS JSON FORMAT:
 }
 
 ACTION TYPES:
+You MUST choose from: ["navigate", "fill", "click", "press", "select", "check", "uncheck", "hover", "focus", "wait"]
+
 - fill: Fill input fields
 - click: Click buttons/links
 - select: Select dropdown options
@@ -89,6 +127,30 @@ ACTION TYPES:
 - check/uncheck: Toggle checkboxes
 - hover: Hover over elements
 - focus: Focus on elements
+- wait: Wait for manual human intervention (HITL - Human-in-the-Loop)
+
+CRITICAL WAIT ACTION RULES:
+Use "wait" action ONLY when user must perform an out-of-band manual step.
+Common wait scenarios: 2FA, MFA, OTP, email verification, SMS codes, authenticator apps, security keys, CAPTCHA.
+
+If natural language includes ANY of these keywords:
+  {verify, 2FA, MFA, OTP, code, verification, authenticator, security key, email code, SMS, CAPTCHA}
+
+You MUST emit:
+  {
+    "action": "wait",
+    "target": "2FA Verification" (or appropriate description),
+    "value": "manual",
+    "outcome": "human_completes_verification"
+  }
+
+NEVER try to "click" on verification prompts, banners, or labels like:
+  ❌ "Click 2FA Verification"
+  ❌ "Click Verify Your Identity"
+  ❌ "Click Enter verification code"
+
+Instead emit:
+  ✅ {"action": "wait", "target": "2FA Verification", "value": "manual"}
 
 OUTCOME TYPES:
 - field_populated: Input field filled
@@ -137,6 +199,14 @@ EXAMPLES:
 ✅ GOOD: target="Continue"
 ❌ BAD: target="Continue Button"
 
+✅ GOOD (HITL for 2FA):
+  Step 3: action="click", target="Log In"
+  Step 4: action="wait", target="2FA Verification", value="manual"
+  Step 5: action="click", target="Accounts"
+
+✅ GOOD (HITL for CAPTCHA):
+  Step 2: action="wait", target="CAPTCHA", value="manual"
+
 Return ONLY valid JSON, no explanations."""
 
     user_prompt = f"""Convert this natural language test description into PACTS JSON format:
@@ -171,6 +241,8 @@ Return ONLY the JSON specification, no markdown code blocks or explanations."""
     # Parse JSON
     try:
         parsed_json = json.loads(response_text)
+        # Post-processor safety net: normalize obvious 2FA/verification steps to "wait" action
+        parsed_json = _normalize_hitl_actions(parsed_json)
         return parsed_json
     except json.JSONDecodeError as e:
         raise ValueError(
