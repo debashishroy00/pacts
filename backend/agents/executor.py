@@ -235,21 +235,42 @@ async def run(state: RunState) -> RunState:
             # Use search box
             search = panel.get_by_role("combobox", name=re.compile("search", re.I)).first
             await search.fill(target)
+
+            # Get current URL before pressing Enter (to detect if navigation happens)
+            old_url = browser.page.url
+
             await browser.page.keyboard.press("Enter")
 
-            # Wait a moment for results
-            await browser.page.wait_for_timeout(1000)
+            # Wait for navigation OR results to appear (Salesforce may auto-navigate)
+            try:
+                # Wait for either navigation or results (5 second timeout)
+                await browser.page.wait_for_timeout(2000)
 
-            # Click the result (button or link)
-            result_button = panel.get_by_role("button", name=re.compile(f"^{re.escape(target)}$", re.I))
-            button_count = await result_button.count()
+                # Check if we navigated away (Salesforce auto-navigated to target)
+                new_url = browser.page.url
+                if new_url != old_url and target.lower() in new_url.lower():
+                    print(f"[EXEC] ✅ Launcher search auto-navigated to: {target}")
+                else:
+                    # No auto-navigation, need to click result in launcher
+                    # Click the result (button or link)
+                    result_button = panel.get_by_role("button", name=re.compile(f"^{re.escape(target)}$", re.I))
+                    button_count = await result_button.count()
 
-            if button_count > 0:
-                await result_button.first.click()
-            else:
-                # Try link
-                result_link = panel.get_by_role("link", name=re.compile(f"^{re.escape(target)}$", re.I))
-                await result_link.first.click()
+                    if button_count > 0:
+                        await result_button.first.click(timeout=5000)
+                        print(f"[EXEC] ✅ Clicked launcher result button for: {target}")
+                    else:
+                        # Try link
+                        result_link = panel.get_by_role("link", name=re.compile(f"^{re.escape(target)}$", re.I))
+                        await result_link.first.click(timeout=5000)
+                        print(f"[EXEC] ✅ Clicked launcher result link for: {target}")
+            except Exception as click_error:
+                # Even if click fails, check if we navigated successfully
+                new_url = browser.page.url
+                if new_url != old_url:
+                    print(f"[EXEC] ✅ Navigation detected despite click error: {new_url}")
+                else:
+                    raise click_error
 
             print(f"[EXEC] Launcher search succeeded for: {target}")
 
