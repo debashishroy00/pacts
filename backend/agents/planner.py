@@ -36,8 +36,8 @@ def _normalize_hitl_actions(spec: Dict[str, Any]) -> Dict[str, Any]:
 
     for tc in spec.get("testcases", []):
         for step in tc.get("steps", []):
-            # Check if step target or value contains 2FA-related keywords
-            target_text = (step.get("target", "") + " " + str(step.get("value", ""))).lower()
+            # Check if step target/element or value contains 2FA-related keywords
+            target_text = (step.get("target", "") + " " + step.get("element", "") + " " + str(step.get("value", ""))).lower()
 
             # If this looks like a 2FA/verification step but isn't already "wait", fix it
             if any(token in target_text for token in twofa_tokens):
@@ -69,7 +69,8 @@ def _add_region_hints(spec: Dict[str, Any]) -> Dict[str, Any]:
         in_app_launcher = False
 
         for i, step in enumerate(steps):
-            target = (step.get("target", "") or "").lower()
+            # Check BOTH target and element fields (LLM uses "element")
+            target = (step.get("target") or step.get("element") or "").lower()
 
             # Detect App Launcher click
             if step.get("action") == "click" and "app launcher" in target:

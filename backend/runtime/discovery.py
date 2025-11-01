@@ -414,7 +414,7 @@ async def discover_selector(browser, intent) -> Optional[Dict[str, Any]]:
 
     # PRIORITY 0: Dialog-scoped discovery for Salesforce App Launcher (immediate fix)
     if within:
-        logger.info(f"[Discovery] Region-scoped discovery: target='{target}' within='{within}'")
+        logger.info(f"⭐ WITHIN HINT DETECTED: target='{target}' within='{within}'")
 
         try:
             # Salesforce App Launcher: Use dialog-scoped locators
@@ -424,7 +424,7 @@ async def discover_selector(browser, intent) -> Optional[Dict[str, Any]]:
                 panel_count = await panel.count()
 
                 if panel_count > 0:
-                    logger.info(f"[Discovery] Found App Launcher dialog, using scoped search")
+                    logger.info(f"🔍 Found App Launcher dialog (count={panel_count}), using scoped search")
 
                     # Try robust launcher search first (works across all orgs)
                     target_lower = target.lower()
