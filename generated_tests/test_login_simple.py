@@ -2,7 +2,7 @@
 PACTS Generated Test
 ====================
 Requirement ID: login_simple
-Generated: 2025-11-01 20:41:37
+Generated: 2025-11-02 18:06:34
 Verdict: PASS
 
 Discovery Strategies Used:
@@ -21,7 +21,7 @@ async def test_login_simple():
 
     Test Details:
     - URL: https://www.saucedemo.com
-    - Steps: 3
+    - Steps: 4
     - Verdict: pass
     
 
@@ -46,6 +46,10 @@ async def test_login_simple():
         # Selector: #login-button
         # Strategy: role_name, Confidence: 0.95
         await page.locator("#login-button").click()
+        # Step 4: CLICK Add to cart
+        # Selector: #add-to-cart-sauce-labs-backpack
+        # Strategy: role_name, Confidence: 0.95
+        await page.locator("#add-to-cart-sauce-labs-backpack").click()
         await browser.close()
 
 

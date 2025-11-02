@@ -1,13 +1,14 @@
-Test: Simple Login Test
+Test: SauceDemo Login and Basic Interaction
 
 URL: https://www.saucedemo.com
 
-Test the basic login functionality.
+Test login and basic product interaction.
 
 Steps:
 1. Enter username "standard_user" in the username field
 2. Enter password "secret_sauce" in the password field
 3. Click the Login button
+4. Click "Add to cart" button for Sauce Labs Backpack
 
 Expected Result:
-User successfully logs in and sees the Products page
+Successfully logs in and adds product to cart
