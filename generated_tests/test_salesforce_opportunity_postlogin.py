@@ -2,7 +2,7 @@
 PACTS Generated Test
 ====================
 Requirement ID: salesforce_opportunity_postlogin
-Generated: 2025-11-02 15:50:27
+Generated: 2025-11-02 15:59:11
 Verdict: FAIL (HEALED: 3 rounds)
 
 Discovery Strategies Used:
@@ -39,34 +39,34 @@ async def test_salesforce_opportunity_postlogin():
         # Strategy: role_name, Confidence: 0.95
         await page.locator("role=button[name*="new"i]").click()
         # Step 2: FILL Opportunity Name
-        # Selector: #input-188
+        # Selector: #input-183
         # Strategy: label, Confidence: 0.92
-        await page.locator("#input-188").fill("Q1 2025 Enterprise Deal")
+        await page.locator("#input-183").fill("Q1 2025 Enterprise Deal")
         # Step 3: FILL Amount
-        # Selector: #input-173
+        # Selector: #input-168
         # Strategy: label, Confidence: 0.92
-        await page.locator("#input-173").fill("100000")
+        await page.locator("#input-168").fill("100000")
         # Step 4: CLICK Stage
-        # Selector: #combobox-button-202
+        # Selector: #combobox-button-197
         # Strategy: label, Confidence: 0.92
-        await page.locator("#combobox-button-202").click()
+        await page.locator("#combobox-button-197").click()
         # Step 5: SELECT Stage
-        # Selector: #combobox-button-202
+        # Selector: #combobox-button-197
         # Strategy: label, Confidence: 0.92
         # HEALED: Round 1, Strategy: reveal
-        await page.locator("#combobox-button-202").select_option("Prospecting")
+        await page.locator("#combobox-button-197").select_option("Prospecting")
         # Step 6: FILL Close Date
-        # Selector: #input-181
+        # Selector: #input-176
         # Strategy: label, Confidence: 0.92
-        await page.locator("#input-181").fill("12/31/2025")
+        await page.locator("#input-176").fill("12/31/2025")
         # Step 7: FILL RAI Test Score
-        # Selector: #input-231
+        # Selector: #input-226
         # Strategy: label, Confidence: 0.92
-        await page.locator("#input-231").fill("75")
+        await page.locator("#input-226").fill("75")
         # Step 8: CLICK RAI Priority Level
-        # Selector: #combobox-button-245
+        # Selector: #combobox-button-240
         # Strategy: label, Confidence: 0.92
-        await page.locator("#combobox-button-245").click()
+        await page.locator("#combobox-button-240").click()
         # Step 9: SELECT RAI Priority Level
         # Selector: role=button[name*=".*RAI\ Priority\ Level.*"i]
         # Strategy: label, Confidence: 0.92

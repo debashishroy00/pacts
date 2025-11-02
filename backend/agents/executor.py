@@ -62,11 +62,65 @@ async def _perform_action(browser, action: str, selector: str, value: Optional[s
             if role == "combobox":
                 print(f"[EXEC] 🔧 Lightning combobox detected: '{value}'")
                 await locator.click(timeout=5000)
-                await browser.page.wait_for_timeout(1000)  # Increased wait for dropdown render
+                await browser.page.wait_for_timeout(2000)  # Wait for dropdown to fully render
 
+                # Try exact match first
                 option = browser.page.get_by_role("option", name=re.compile(f"^{re.escape(value)}$", re.I))
-                if await option.count() == 0:
-                    print(f"[EXEC] ❌ Option '{value}' not found")
+                option_count = await option.count()
+
+                # If exact match fails, try partial match
+                if option_count == 0:
+                    print(f"[EXEC] 🔍 Exact match failed for '{value}', trying partial match...")
+                    option = browser.page.get_by_role("option", name=re.compile(re.escape(value), re.I))
+                    option_count = await option.count()
+
+                # Debug: Show all available options if still not found
+                if option_count == 0:
+                    print(f"[EXEC] 🔍 Debugging: Listing all available options...")
+                    all_options = browser.page.get_by_role("option")
+                    total_options = await all_options.count()
+                    print(f"[EXEC] 🔍 Found {total_options} option elements with role='option'")
+
+                    # Try listitem role (Salesforce often uses this)
+                    if total_options == 0:
+                        print(f"[EXEC] 🔍 Trying role='listitem'...")
+                        all_options = browser.page.get_by_role("listitem")
+                        total_options = await all_options.count()
+                        print(f"[EXEC] 🔍 Found {total_options} listitem elements")
+
+                        if total_options > 0:
+                            # Search for value in listitems
+                            print(f"[EXEC] 🔍 Searching through {total_options} listitems for '{value}'...")
+                            for i in range(total_options):
+                                try:
+                                    opt = all_options.nth(i)
+                                    opt_text = await opt.inner_text()
+                                    opt_text_clean = opt_text.strip() if opt_text else ""
+
+                                    # Debug: Show first 10 listitem texts
+                                    if i < 10:
+                                        print(f"[EXEC] 🔍   Listitem {i}: '{opt_text_clean[:50]}'")
+
+                                    if opt_text_clean and value.lower() in opt_text_clean.lower():
+                                        print(f"[EXEC] ✅ Found '{value}' in listitem {i}, clicking...")
+                                        await opt.click(timeout=5000)
+                                        print(f"[EXEC] ✅ Selected '{value}'")
+                                        return True
+                                except Exception as e:
+                                    if i < 10:
+                                        print(f"[EXEC] ⚠️ Error reading listitem {i}: {e}")
+                                    continue
+
+                    # Fallback: Try plain text search
+                    if total_options == 0:
+                        print(f"[EXEC] 🔍 Fallback: Searching by text...")
+                        text_option = browser.page.get_by_text(value, exact=True)
+                        if await text_option.count() > 0:
+                            await text_option.first.click(timeout=5000)
+                            print(f"[EXEC] ✅ Selected '{value}' via text search")
+                            return True
+
+                    print(f"[EXEC] ❌ Option '{value}' not found after all attempts")
                     return False
 
                 await option.first.click(timeout=5000)
