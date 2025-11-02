@@ -150,8 +150,13 @@ async def handle_lightning_combobox(browser, locator, value: str) -> bool:
     """
     Handle Salesforce Lightning combobox (custom dropdown) selection.
 
-    Lightning comboboxes are custom components that don't use native <select>.
-    They require clicking to open, waiting for options to render, then selecting.
+    Uses a robust multi-strategy approach to handle Lightning's various picklist
+    rendering modes (standard, custom fields, portals, shadow DOM).
+
+    Priority order:
+    1. Type-ahead (bypasses DOM quirks - works even when options aren't queryable)
+    2. aria-controls listbox targeting (scoped search with role fallbacks)
+    3. Keyboard navigation (arrow down + enter - sidesteps all DOM issues)
 
     Args:
         browser: Browser client instance
@@ -161,58 +166,139 @@ async def handle_lightning_combobox(browser, locator, value: str) -> bool:
     Returns:
         bool: True if selection succeeded, False otherwise
     """
-    print(f"[SALESFORCE] 🔧 Lightning combobox detected: '{value}'")
+    print(f"[SALESFORCE] 🔧 Lightning combobox: '{value}'")
 
-    # Click to open dropdown
-    await locator.click(timeout=5000)
-    await browser.page.wait_for_timeout(2000)  # Wait for dropdown to render
+    # Get the input element for type-ahead
+    element_handle = await locator.element_handle()
 
-    # Try exact match first
-    option = browser.page.get_by_role("option", name=re.compile(f"^{re.escape(value)}$", re.I))
-    option_count = await option.count()
+    # STRATEGY 1: Type-ahead (most robust - bypasses options DOM)
+    # Lightning filters internally, works even when options aren't queryable
+    try:
+        print(f"[SALESFORCE] 🎯 Strategy 1: Type-ahead")
+        await locator.click(timeout=5000)
+        await browser.page.wait_for_timeout(300)  # Wait for dropdown to open
 
-    # Try partial match if exact fails
-    if option_count == 0:
-        print(f"[SALESFORCE] 🔍 Exact match failed, trying partial match...")
-        option = browser.page.get_by_role("option", name=re.compile(re.escape(value), re.I))
-        option_count = await option.count()
+        # Focus the input and type the value
+        await locator.focus()
+        await browser.page.keyboard.type(value, delay=50)
+        await browser.page.wait_for_timeout(200)  # Debounce for filtering
 
-    # Fallback strategies if still not found
-    if option_count == 0:
-        print(f"[SALESFORCE] 🔍 Trying fallback strategies...")
+        # Press Enter to select the filtered option
+        await browser.page.keyboard.press("Enter")
+        await browser.page.wait_for_timeout(300)  # Wait for selection
 
-        # Try listitem role
-        all_options = browser.page.get_by_role("listitem")
-        total_options = await all_options.count()
+        # Verify selection (check if dropdown closed)
+        aria_expanded = await element_handle.get_attribute("aria-expanded")
+        if aria_expanded == "false":
+            print(f"[SALESFORCE] ✅ Selected '{value}' via type-ahead")
+            return True
 
-        if total_options > 0:
-            for i in range(total_options):
+        print(f"[SALESFORCE] ⚠️ Type-ahead didn't work, trying next strategy...")
+    except Exception as e:
+        print(f"[SALESFORCE] ⚠️ Type-ahead failed: {e}")
+
+    # STRATEGY 2: aria-controls listbox targeting (scoped search)
+    # Targets specific listbox, not global page elements
+    try:
+        print(f"[SALESFORCE] 🎯 Strategy 2: aria-controls listbox targeting")
+        await locator.click(timeout=5000)
+        await browser.page.wait_for_load_state("domcontentloaded")
+        await browser.page.wait_for_timeout(500)
+
+        # Get the listbox ID from aria-controls
+        aria_controls = await element_handle.get_attribute("aria-controls")
+
+        if aria_controls:
+            print(f"[SALESFORCE] 📍 Targeting listbox: #{aria_controls}")
+
+            # Target the specific listbox (may be portaled to body)
+            listbox = browser.page.locator(f"#{aria_controls}")
+
+            # Wait for listbox to be visible
+            try:
+                await listbox.wait_for(state="visible", timeout=2000)
+            except Exception:
+                print(f"[SALESFORCE] ⚠️ Listbox #{aria_controls} not visible")
+                raise
+
+            # Try multiple role patterns (Lightning uses different roles)
+            role_patterns = [
+                ("option", "role=option"),
+                ("menuitemradio", "role=menuitemradio"),
+                ("listitem", "li.slds-listbox__item"),
+                ("class", ".slds-listbox__option"),
+            ]
+
+            for role_name, selector_pattern in role_patterns:
                 try:
-                    opt = all_options.nth(i)
-                    opt_text = (await opt.inner_text()).strip()
+                    # Search within the specific listbox
+                    if role_name in ["option", "menuitemradio"]:
+                        options = listbox.get_by_role(role_name)
+                    else:
+                        options = listbox.locator(selector_pattern)
 
-                    if opt_text and value.lower() in opt_text.lower():
-                        print(f"[SALESFORCE] ✅ Found '{value}' in listitem, clicking...")
-                        await opt.click(timeout=5000)
-                        print(f"[SALESFORCE] ✅ Selected '{value}'")
-                        return True
+                    option_count = await options.count()
+
+                    if option_count > 0:
+                        print(f"[SALESFORCE] 🔍 Found {option_count} items with {role_name}")
+
+                        # Search for matching value
+                        for i in range(option_count):
+                            opt = options.nth(i)
+                            opt_text = (await opt.inner_text()).strip()
+
+                            if value.lower() in opt_text.lower():
+                                print(f"[SALESFORCE] ✅ Found '{value}' at index {i}, clicking...")
+                                await opt.click(timeout=5000)
+                                print(f"[SALESFORCE] ✅ Selected '{value}' via {role_name}")
+                                return True
                 except Exception:
                     continue
 
-        # Final fallback: plain text search
-        text_option = browser.page.get_by_text(value, exact=True)
-        if await text_option.count() > 0:
-            await text_option.first.click(timeout=5000)
-            print(f"[SALESFORCE] ✅ Selected '{value}' via text search")
-            return True
+            print(f"[SALESFORCE] ⚠️ aria-controls targeting didn't find option")
+        else:
+            print(f"[SALESFORCE] ⚠️ No aria-controls attribute found")
 
-        print(f"[SALESFORCE] ❌ Option '{value}' not found after all attempts")
-        return False
+    except Exception as e:
+        print(f"[SALESFORCE] ⚠️ aria-controls targeting failed: {e}")
 
-    # Found via role="option"
-    await option.first.click(timeout=5000)
-    print(f"[SALESFORCE] ✅ Selected '{value}'")
-    return True
+    # STRATEGY 3: Keyboard navigation (rock-solid fallback)
+    # Sidesteps DOM role inconsistencies entirely
+    try:
+        print(f"[SALESFORCE] 🎯 Strategy 3: Keyboard navigation")
+        await locator.click(timeout=5000)
+        await browser.page.wait_for_timeout(500)
+
+        # Arrow down through options, reading highlighted text
+        max_attempts = 20  # Prevent infinite loops
+        for attempt in range(max_attempts):
+            await browser.page.keyboard.press("ArrowDown")
+            await browser.page.wait_for_timeout(150)
+
+            # Read the currently highlighted option (Lightning updates aria-activedescendant)
+            try:
+                active_descendant = await element_handle.get_attribute("aria-activedescendant")
+                if active_descendant:
+                    active_option = browser.page.locator(f"#{active_descendant}")
+                    highlighted_text = (await active_option.inner_text()).strip()
+
+                    if value.lower() in highlighted_text.lower():
+                        print(f"[SALESFORCE] ✅ Found '{value}' at position {attempt}, pressing Enter")
+                        await browser.page.keyboard.press("Enter")
+                        await browser.page.wait_for_timeout(300)
+                        print(f"[SALESFORCE] ✅ Selected '{value}' via keyboard nav")
+                        return True
+            except Exception:
+                continue
+
+        print(f"[SALESFORCE] ⚠️ Keyboard nav exhausted after {max_attempts} attempts")
+
+    except Exception as e:
+        print(f"[SALESFORCE] ⚠️ Keyboard navigation failed: {e}")
+
+    # All strategies failed
+    print(f"[SALESFORCE] ❌ All strategies failed for '{value}'")
+    return False
 
 
 def is_launcher_search(selector: str) -> bool:
