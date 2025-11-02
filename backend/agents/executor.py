@@ -329,6 +329,27 @@ async def run(state: RunState) -> RunState:
                                             "forceActionLink" in classes    # Salesforce action link
                                         )
 
+                                        # If element itself isn't clickable, check parent (text nodes often nested in clickable containers)
+                                        if not is_clickable:
+                                            try:
+                                                parent = await candidate.evaluate("el => el.parentElement")
+                                                if parent:
+                                                    parent_tag = await candidate.evaluate("el => el.parentElement.tagName.toLowerCase()")
+                                                    parent_href = await candidate.evaluate("el => el.parentElement.getAttribute('href')")
+                                                    parent_role = await candidate.evaluate("el => el.parentElement.getAttribute('role')")
+                                                    parent_classes = await candidate.evaluate("el => el.parentElement.getAttribute('class')") or ""
+
+                                                    is_clickable = (
+                                                        parent_tag == "a" and parent_href or
+                                                        parent_role == "link" or
+                                                        "slds-truncate" in parent_classes or
+                                                        "forceActionLink" in parent_classes
+                                                    )
+                                                    if is_clickable:
+                                                        print(f"[EXEC] 🔍   Parent is clickable: {parent_tag}")
+                                            except Exception:
+                                                pass
+
                                         if is_clickable:
                                             await candidate.click(timeout=5000)
                                             print(f"[EXEC] ✅ Clicked clickable text element for: {target} (candidate {i})")
@@ -624,8 +645,8 @@ async def run(state: RunState) -> RunState:
         state.context["navigation_step"] = state.step_idx
 
     # NAVIGATION AWARENESS: Wait for page to settle after actions that navigate
-    expected = step.get("expected", "")
-    if expected.startswith("navigates_to:"):
+    expected = step.get("expected") or ""
+    if expected and expected.startswith("navigates_to:"):
         try:
             # Wait for network to be idle (AJAX, page load complete)
             await browser.page.wait_for_load_state("networkidle", timeout=5000)

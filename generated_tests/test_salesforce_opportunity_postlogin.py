@@ -2,12 +2,11 @@
 PACTS Generated Test
 ====================
 Requirement ID: salesforce_opportunity_postlogin
-Generated: 2025-11-02 14:11:20
+Generated: 2025-11-02 15:38:46
 Verdict: FAIL
 
 Discovery Strategies Used:
-  - launcher_search
-  - role_name
+  - failed
 
 """
 
@@ -20,8 +19,8 @@ async def test_salesforce_opportunity_postlogin():
     Test for requirement: salesforce_opportunity_postlogin
 
     Test Details:
-    - URL: https://orgfarm-9a1de3d5e8-dev-ed.develop.my.salesforce.com
-    - Steps: 12
+    - URL: https://orgfarm-9a1de3d5e8-dev-ed.develop.lightning.force.com/lightning/o/Opportunity/list
+    - Steps: 10
     - Verdict: fail
     
 
@@ -32,53 +31,45 @@ async def test_salesforce_opportunity_postlogin():
         page = await browser.new_page()
 
         # Navigate to target URL
-        await page.goto("https://orgfarm-9a1de3d5e8-dev-ed.develop.my.salesforce.com")
+        await page.goto("https://orgfarm-9a1de3d5e8-dev-ed.develop.lightning.force.com/lightning/o/Opportunity/list")
 
-        # Step 1: CLICK App Launcher
-        # Selector: role=button[name*="app\ launcher"i]
-        # Strategy: role_name, Confidence: 0.95
-        await page.locator("role=button[name*="app\ launcher"i]").click()
-        # Step 2: CLICK Opportunities
-        # Selector: role=button[name*=".*Opportunities.*"i]
-        # Strategy: launcher_search, Confidence: 0.98
-        await page.locator("role=button[name*=".*Opportunities.*"i]").click()
-        # Step 3: CLICK New
-        # Selector: 
-        # Strategy: , Confidence: 
-        await page.locator("").click()
-        # Step 4: FILL Opportunity Name
+        # Step 1: CLICK New
+        # Selector: role=button[name*=".*New.*"i]
+        # Strategy: failed, Confidence: 0.0
+        await page.locator("role=button[name*=".*New.*"i]").click()
+        # Step 2: FILL Opportunity Name
         # Selector: 
         # Strategy: , Confidence: 
         await page.locator("").fill("Q1 2025 Enterprise Deal")
-        # Step 5: FILL Amount
+        # Step 3: FILL Amount
         # Selector: 
         # Strategy: , Confidence: 
         await page.locator("").fill("100000")
-        # Step 6: CLICK Stage
+        # Step 4: CLICK Stage
         # Selector: 
         # Strategy: , Confidence: 
         await page.locator("").click()
-        # Step 7: SELECT Stage
+        # Step 5: SELECT Stage
         # Selector: 
         # Strategy: , Confidence: 
         await page.locator("").select_option("Prospecting")
-        # Step 8: FILL Close Date
+        # Step 6: FILL Close Date
         # Selector: 
         # Strategy: , Confidence: 
         await page.locator("").fill("12/31/2025")
-        # Step 9: FILL RAI Test Score
+        # Step 7: FILL RAI Test Score
         # Selector: 
         # Strategy: , Confidence: 
         await page.locator("").fill("75")
-        # Step 10: CLICK RAI Priority Level
+        # Step 8: CLICK RAI Priority Level
         # Selector: 
         # Strategy: , Confidence: 
         await page.locator("").click()
-        # Step 11: SELECT RAI Priority Level
+        # Step 9: SELECT RAI Priority Level
         # Selector: 
         # Strategy: , Confidence: 
         await page.locator("").select_option("Low")
-        # Step 12: CLICK Save
+        # Step 10: CLICK Save
         # Selector: 
         # Strategy: , Confidence: 
         await page.locator("").click()
