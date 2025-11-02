@@ -521,9 +521,15 @@ def test(req: str, url: Optional[str], headed: bool, slow_mo: int, mcp: bool):
         mcp_status = _check_mcp_status(mcp)
         _display_mcp_status(mcp_status)
 
+        # Check for saved Salesforce session
+        import os
+        storage_state_path = "hitl/salesforce_auth.json"
+        storage_state = storage_state_path if os.path.exists(storage_state_path) else None
+
         browser_config = {
             "headless": not headed,
-            "slow_mo": slow_mo
+            "slow_mo": slow_mo,
+            "storage_state": storage_state
         }
 
         # Set MCP environment variable if requested

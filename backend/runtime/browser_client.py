@@ -54,7 +54,7 @@ class BrowserClient:
         self.browser = None
         self.page = None  # type: ignore
 
-    async def start(self, headless: bool = True, project: str = "chromium", slow_mo: int = 0):
+    async def start(self, headless: bool = True, project: str = "chromium", slow_mo: int = 0, storage_state: Optional[str] = None):
         """
         Start the browser instance.
 
@@ -62,6 +62,7 @@ class BrowserClient:
             headless: Run browser in headless mode (default: True)
             project: Browser type: chromium, firefox, webkit (default: chromium)
             slow_mo: Slow down operations by specified milliseconds (default: 0)
+            storage_state: Path to saved auth state JSON file (default: None)
         """
         from playwright.async_api import async_playwright
         self._pw = await async_playwright().start()
@@ -71,11 +72,37 @@ class BrowserClient:
             self.browser = await self._pw.firefox.launch(headless=headless, slow_mo=slow_mo)
         else:
             self.browser = await self._pw.webkit.launch(headless=headless, slow_mo=slow_mo)
-        self.page = await self.browser.new_page()
+
+        # Create new page with optional storage state (cookies/localStorage)
+        if storage_state:
+            import os
+            if os.path.exists(storage_state):
+                self.page = await self.browser.new_page(storage_state=storage_state)
+                print(f"[AUTH] ✅ Restored session from {storage_state}")
+            else:
+                self.page = await self.browser.new_page()
+                print(f"[AUTH] ⚠️ Storage state file not found: {storage_state}")
+        else:
+            self.page = await self.browser.new_page()
 
     async def goto(self, url: str, wait: str = "domcontentloaded"):
         assert self.page, "Call start() first"
         await self.page.goto(url, wait_until=wait)
+
+    async def save_storage_state(self, path: str):
+        """
+        Save current browser storage state (cookies, localStorage, sessionStorage) to file.
+
+        Args:
+            path: File path to save storage state JSON
+
+        This allows reusing authentication across test runs without re-login.
+        """
+        assert self.page, "Call start() first"
+        import os
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        await self.page.context.storage_state(path=path)
+        print(f"[AUTH] 💾 Saved session to {path}")
 
     async def query(self, selector: str):
         assert self.page, "Call start() first"

@@ -52,8 +52,36 @@ async def _perform_action(browser, action: str, selector: str, value: Optional[s
         elif action == "select":
             if value is None:
                 return False
-            await locator.select_option(value, timeout=5000)
-            return True
+
+            # Get element to detect type (Lightning combobox vs native select)
+            element_handle = await locator.element_handle()
+            role = await element_handle.get_attribute("role")
+            tag_name = await element_handle.evaluate("el => el.tagName.toLowerCase()")
+
+            # Lightning combobox (Salesforce pattern)
+            if role == "combobox":
+                print(f"[EXEC] 🔧 Lightning combobox detected: '{value}'")
+                await locator.click(timeout=5000)
+                await browser.page.wait_for_timeout(1000)  # Increased wait for dropdown render
+
+                option = browser.page.get_by_role("option", name=re.compile(f"^{re.escape(value)}$", re.I))
+                if await option.count() == 0:
+                    print(f"[EXEC] ❌ Option '{value}' not found")
+                    return False
+
+                await option.first.click(timeout=5000)
+                print(f"[EXEC] ✅ Selected '{value}'")
+                return True
+
+            # Native HTML select
+            elif tag_name == "select":
+                await locator.select_option(value, timeout=5000)
+                return True
+
+            # Fallback
+            else:
+                await locator.select_option(value, timeout=5000)
+                return True
 
         elif action == "check":
             await locator.check(timeout=5000)
@@ -228,98 +256,200 @@ async def run(state: RunState) -> RunState:
         target = selector.split(":", 1)[1]
         print(f"[EXEC] Launcher search detected for: {target}")
 
-        try:
-            # Find App Launcher dialog
-            panel = browser.page.get_by_role("dialog", name=re.compile("app.?launcher", re.I))
+        MAX_LAUNCHER_RETRIES = 2
+        last_error = None
 
-            # Use search box
-            search = panel.get_by_role("combobox", name=re.compile("search", re.I)).first
-            await search.fill(target)
-
-            # Get current URL before pressing Enter (to detect if navigation happens)
-            old_url = browser.page.url
-
-            await browser.page.keyboard.press("Enter")
-
-            # Wait for navigation OR results to appear (Salesforce may auto-navigate)
+        for retry_attempt in range(MAX_LAUNCHER_RETRIES):
             try:
-                # Wait for navigation to complete or timeout
+                # Find App Launcher dialog
+                panel = browser.page.get_by_role("dialog", name=re.compile("app.?launcher", re.I))
+                panel_count = await panel.count()
+
+                if panel_count == 0:
+                    raise Exception(f"App Launcher panel not found (retry {retry_attempt+1}/{MAX_LAUNCHER_RETRIES})")
+
+                # Use search box
+                search = panel.get_by_role("combobox", name=re.compile("search", re.I)).first
+                # Clear any previous search text (important for retries)
+                await search.clear()
+                await browser.page.wait_for_timeout(500)
+                await search.fill(target)
+                await browser.page.wait_for_timeout(2000)  # Increased wait for search results to populate
+
+                # Get current URL (to detect if clicking result navigates)
+                old_url = browser.page.url
+
+                # Try to click the result directly (don't press Enter - it might clear results)
                 try:
-                    await browser.page.wait_for_load_state("networkidle", timeout=3000)
-                except:
-                    pass  # Continue even if timeout - navigation might still have occurred
-
-                # Check if we navigated away (Salesforce auto-navigated to target)
-                new_url = browser.page.url
-
-                # More robust navigation check: Verify we reached a specific Lightning page type
-                navigated_to_object = (
-                    new_url != old_url and (
-                        "/lightning/o/" in new_url or   # Object home (list view)
-                        "/lightning/r/" in new_url or   # Record view
-                        "/lightning/page/" in new_url   # Custom Lightning page
-                    ) and target.lower() in new_url.lower()
-                )
-
-                if navigated_to_object:
-                    print(f"[EXEC] ✅ Launcher search auto-navigated to: {target} ({new_url})")
-                else:
-                    # No auto-navigation, need to click result in launcher
                     # Click the result (button or link)
-                    result_button = panel.get_by_role("button", name=re.compile(f"^{re.escape(target)}$", re.I))
+                    # Use more lenient pattern - match if target appears anywhere in name (not just exact match)
+                    result_button = panel.get_by_role("button", name=re.compile(re.escape(target), re.I))
                     button_count = await result_button.count()
 
                     if button_count > 0:
                         await result_button.first.click(timeout=5000)
                         print(f"[EXEC] ✅ Clicked launcher result button for: {target}")
+                        break  # Success
                     else:
                         # Try link
-                        result_link = panel.get_by_role("link", name=re.compile(f"^{re.escape(target)}$", re.I))
-                        await result_link.first.click(timeout=5000)
-                        print(f"[EXEC] ✅ Clicked launcher result link for: {target}")
-            except Exception as click_error:
-                # Even if click fails, check if we navigated successfully
-                new_url = browser.page.url
-                if new_url != old_url:
-                    print(f"[EXEC] ✅ Navigation detected despite click error: {new_url}")
+                        result_link = panel.get_by_role("link", name=re.compile(re.escape(target), re.I))
+                        link_count = await result_link.count()
+                        if link_count > 0:
+                            await result_link.first.click(timeout=5000)
+                            print(f"[EXEC] ✅ Clicked launcher result link for: {target}")
+                            break  # Success
+                        else:
+                            # Try ANY element with text (Salesforce uses divs/spans with click handlers)
+                            # BUT filter for clickable elements only (Option A: Filter by clickability)
+                            result_text = panel.get_by_text(target, exact=False)
+                            text_count = await result_text.count()
+                            if text_count > 0:
+                                print(f"[EXEC] 🔍 Found {text_count} elements with text '{target}', filtering for clickable ones...")
+
+                                # Iterate through candidates and find the clickable one
+                                clicked = False
+                                for i in range(text_count):
+                                    candidate = result_text.nth(i)
+                                    try:
+                                        # Check if element is clickable
+                                        tag = await candidate.evaluate("el => el.tagName.toLowerCase()")
+                                        href = await candidate.get_attribute("href")
+                                        role = await candidate.get_attribute("role")
+                                        classes = await candidate.get_attribute("class") or ""
+
+                                        # Log for debugging
+                                        print(f"[EXEC] 🔍   Candidate {i}: tag={tag} href={href} role={role} classes={classes[:50]}")
+
+                                        # Filter: Skip section headings (usually divs without href)
+                                        # Accept: <a> tags with href, or elements with role="link", or specific Salesforce classes
+                                        is_clickable = (
+                                            tag == "a" and href or  # Link with href
+                                            role == "link" or       # ARIA link role
+                                            "slds-truncate" in classes or  # Salesforce list item class
+                                            "forceActionLink" in classes    # Salesforce action link
+                                        )
+
+                                        if is_clickable:
+                                            await candidate.click(timeout=5000)
+                                            print(f"[EXEC] ✅ Clicked clickable text element for: {target} (candidate {i})")
+                                            clicked = True
+                                            break
+                                        else:
+                                            print(f"[EXEC] 🔍   Skipping non-clickable element (candidate {i})")
+                                    except Exception as e:
+                                        print(f"[EXEC] ⚠️ Error checking candidate {i}: {e}")
+                                        continue
+
+                                if clicked:
+                                    break  # Success
+                                else:
+                                    print(f"[EXEC] ❌ No clickable element found among {text_count} candidates")
+                            else:
+                                # MCP DEBUG: Inspect what's actually in the App Launcher
+                                print(f"[EXEC] 🔍 MCP Debug: Inspecting App Launcher contents for '{target}'...")
+                                try:
+                                    # Get all buttons in the panel
+                                    all_buttons = panel.get_by_role("button")
+                                    button_total = await all_buttons.count()
+                                    print(f"[EXEC] 🔍 Found {button_total} buttons in App Launcher")
+
+                                    # Sample first 10 button names
+                                    for i in range(min(10, button_total)):
+                                        btn = all_buttons.nth(i)
+                                        btn_text = await btn.inner_text()
+                                        btn_name = await btn.get_attribute("aria-label") or btn_text
+                                        print(f"[EXEC] 🔍   Button {i}: '{btn_name}' (text: '{btn_text}')")
+
+                                    # Get all links in the panel
+                                    all_links = panel.get_by_role("link")
+                                    link_total = await all_links.count()
+                                    print(f"[EXEC] 🔍 Found {link_total} links in App Launcher")
+
+                                    # Sample first 10 link names
+                                    for i in range(min(10, link_total)):
+                                        link = all_links.nth(i)
+                                        link_text = await link.inner_text()
+                                        link_name = await link.get_attribute("aria-label") or link_text
+                                        print(f"[EXEC] 🔍   Link {i}: '{link_name}' (text: '{link_text}')")
+
+                                    # ALSO check for ANY element containing the target text (not just button/link)
+                                    print(f"[EXEC] 🔍 Searching for ANY element with text '{target}'...")
+                                    text_locator = panel.get_by_text(target, exact=False)
+                                    text_count = await text_locator.count()
+                                    print(f"[EXEC] 🔍 Found {text_count} elements containing '{target}'")
+
+                                    for i in range(min(5, text_count)):
+                                        elem = text_locator.nth(i)
+                                        elem_text = await elem.inner_text()
+                                        elem_role = await elem.get_attribute("role")
+                                        elem_tag = await elem.evaluate("el => el.tagName")
+                                        print(f"[EXEC] 🔍   Element {i}: tag='{elem_tag}' role='{elem_role}' text='{elem_text}'")
+                                except Exception as debug_error:
+                                    print(f"[EXEC] ⚠️ MCP debug failed: {debug_error}")
+
+                                raise Exception(f"No results found for '{target}' in App Launcher")
+                except Exception as click_error:
+                    # Even if click fails, check if we navigated successfully
+                    new_url = browser.page.url
+                    if new_url != old_url:
+                        print(f"[EXEC] ✅ Navigation detected despite click error: {new_url}")
+                        break  # Success
+                    else:
+                        raise click_error
+
+            except Exception as e:
+                last_error = e
+
+                if retry_attempt < MAX_LAUNCHER_RETRIES - 1:
+                    # Retry logic
+                    print(f"[EXEC] ⚠️ Launcher search retry {retry_attempt+1}/{MAX_LAUNCHER_RETRIES} for: {target}")
+
+                    # Close and reopen App Launcher
+                    await browser.page.keyboard.press("Escape")
+                    await browser.page.wait_for_timeout(500)
+
+                    app_launcher_button = browser.page.get_by_role("button", name=re.compile("app.?launcher", re.I))
+                    await app_launcher_button.first.click()
+                    await browser.page.wait_for_timeout(1000)
+
+                    continue  # Try again
                 else:
-                    raise click_error
+                    # Final retry failed
+                    print(f"[EXEC] ❌ Launcher search failed after {MAX_LAUNCHER_RETRIES} retries: {target}")
+                    print(f"[EXEC] Diagnostics: url={browser.page.url}, last_error={str(last_error)}")
+                    state.failure = Failure.timeout
+                    return state
 
-            print(f"[EXEC] Launcher search succeeded for: {target}")
+        print(f"[EXEC] Launcher search succeeded for: {target}")
 
-            # Mark step as complete
-            state.step_idx += 1
-            state.failure = Failure.none
-            if "executed_steps" not in state.context:
-                state.context["executed_steps"] = []
-            state.context["executed_steps"].append({
-                "step_idx": state.step_idx - 1,
-                "selector": selector,
-                "action": action,
-                "method": "launcher_search"
-            })
+        # Mark step as complete
+        state.step_idx += 1
+        state.failure = Failure.none
+        if "executed_steps" not in state.context:
+            state.context["executed_steps"] = []
+        state.context["executed_steps"].append({
+            "step_idx": state.step_idx - 1,
+            "selector": selector,
+            "action": action,
+            "method": "launcher_search"
+        })
 
-            # Take screenshot
-            try:
-                import os
-                from pathlib import Path
-                screenshots_dir = Path("screenshots")
-                screenshots_dir.mkdir(exist_ok=True)
-                req_id = state.req_id or "unknown"
-                step_num = state.step_idx - 1
-                element_name = step.get("element", target).replace(" ", "_").replace("/", "_")
-                screenshot_path = screenshots_dir / f"{req_id}_step{step_num:02d}_{element_name}.png"
-                await browser.page.screenshot(path=str(screenshot_path))
-                print(f"[EXEC] Screenshot saved: {screenshot_path}")
-            except Exception:
-                pass
+        # Take screenshot
+        try:
+            import os
+            from pathlib import Path
+            screenshots_dir = Path("screenshots")
+            screenshots_dir.mkdir(exist_ok=True)
+            req_id = state.req_id or "unknown"
+            step_num = state.step_idx - 1
+            element_name = step.get("element", target).replace(" ", "_").replace("/", "_")
+            screenshot_path = screenshots_dir / f"{req_id}_step{step_num:02d}_{element_name}.png"
+            await browser.page.screenshot(path=str(screenshot_path))
+            print(f"[EXEC] Screenshot saved: {screenshot_path}")
+        except Exception:
+            pass
 
-            return state
-
-        except Exception as e:
-            print(f"[EXEC] Launcher search failed: {e}")
-            state.failure = Failure.timeout
-            return state
+        return state
 
     # Update last_selector for healing
     state.last_selector = selector

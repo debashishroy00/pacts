@@ -1,0 +1,21 @@
+Test: Salesforce Opportunity Creation (Post-Login)
+
+URL: https://orgfarm-9a1de3d5e8-dev-ed.develop.my.salesforce.com
+
+Note: This spec assumes user is already logged in (session restored from hitl/salesforce_auth.json)
+
+Test Steps:
+1. Click App Launcher button
+2. Click Opportunities in App Launcher
+3. Click New button
+4. Fill "Q1 2025 Enterprise Deal" in Opportunity Name field
+5. Fill "100000" in Amount field
+6. Click Stage dropdown
+7. Select "Prospecting" from dropdown
+8. Fill "12/31/2025" in Close Date field
+9. Fill "75" in RAI Test Score field
+10. Click RAI Priority Level dropdown
+11. Select "Low" from RAI Priority Level dropdown
+12. Click Save button
+
+Expected Result: Opportunity created successfully with all fields populated

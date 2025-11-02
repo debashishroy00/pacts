@@ -1,0 +1,23 @@
+Test: Salesforce Opportunity Creation
+
+URL: https://orgfarm-9a1de3d5e8-dev-ed.develop.my.salesforce.com
+
+Test Steps:
+1. Fill username "debashishroy@gmail.com" in Username field
+2. Fill password "Pink12345678" in Password field
+3. Click Log In button
+4. Wait for 2FA Verification (manual HITL step - enter code, click Verify button, wait for homepage to load)
+5. Click App Launcher button
+6. Click Opportunities in App Launcher
+7. Click New button
+8. Fill "Q1 2025 Enterprise Deal" in Opportunity Name field
+9. Fill "100000" in Amount field
+10. Click Stage dropdown
+11. Select "Prospecting" from dropdown
+12. Fill "12/31/2025" in Close Date field
+13. Fill "75" in RAI Test Score field
+14. Click RAI Priority Level dropdown
+15. Select "Low" from RAI Priority Level dropdown
+16. Click Save button
+
+Expected: Opportunity "Q1 2025 Enterprise Deal" is created successfully with Stage "Prospecting" and Close Date "12/31/2025"

@@ -3,7 +3,7 @@ Test: Salesforce Complete Workflow with HITL 2FA
 URL: https://orgfarm-9a1de3d5e8-dev-ed.develop.my.salesforce.com
 
 Test Steps:
-1. Fill username "debashishroy00106@agentforce.com" in Username field
+1. Fill username "debashishroy@gmail.com" in Username field
 2. Fill password "Pink12345678" in Password field
 3. Click "Log In" button
 4. WAIT for manual 2FA verification entry

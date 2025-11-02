@@ -230,6 +230,16 @@ def build_graph():
 
         print(f"\n✅ Manual intervention completed, resuming automation...\n")
 
+        # Save storage state after successful HITL (for session reuse)
+        try:
+            from ..runtime.browser_manager import BrowserManager
+            browser = await BrowserManager.get()
+            if browser and hasattr(browser, 'save_storage_state'):
+                storage_path = "hitl/salesforce_auth.json"
+                await browser.save_storage_state(storage_path)
+        except Exception as e:
+            logger.warning(f"[HITL] Failed to save storage state: {e}")
+
         # Reset HITL flag
         state.requires_human = False
 

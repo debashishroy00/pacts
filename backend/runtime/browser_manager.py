@@ -12,7 +12,7 @@ class BrowserManager:
         Get or create the singleton BrowserClient.
 
         Args:
-            config: Optional browser configuration (headless, slow_mo, etc.)
+            config: Optional browser configuration (headless, slow_mo, storage_state, etc.)
                    Only used on first call when browser is initialized.
         """
         if cls._client is None:
@@ -22,11 +22,12 @@ class BrowserManager:
 
             headless = cls._config.get("headless", True)
             slow_mo = cls._config.get("slow_mo", 0)
+            storage_state = cls._config.get("storage_state", None)
 
             print(f"[BrowserManager] Initializing browser: headless={headless}, slow_mo={slow_mo}")
 
             cls._client = BrowserClient()
-            await cls._client.start(headless=headless, slow_mo=slow_mo)
+            await cls._client.start(headless=headless, slow_mo=slow_mo, storage_state=storage_state)
 
         return cls._client
 

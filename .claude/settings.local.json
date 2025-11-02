@@ -1,22 +1,8 @@
 {
   "permissions": {
     "allow": [
-      "Bash(taskkill /F /IM python.exe)",
-      "Bash(python -m backend.cli.main test --req youtube_search --headed --slow-mo 800)",
-      "Bash(python -m backend.cli.main test --req stackoverflow_search --headed --slow-mo 800)",
-      "Bash(python -m backend.cli.main test --req reddit_search --headed --slow-mo 800)",
-      "Bash(npx -y @modelcontextprotocol/server-playwright --help)",
-      "Bash(python test_mcp_tools.py)",
-      "Bash(npm search @modelcontextprotocol/server-cdp)",
-      "Bash(python test_mcp_vision.py)",
-      "Bash(npm view @playwright/mcp repository)",
-      "Bash(powershell -Command \"Get-Process python -ErrorAction SilentlyContinue | Stop-Process -Force\")",
-      "Bash(python -m py_compile backend/mcp/mcp_client.py)",
-      "Bash(git checkout backend/mcp/mcp_client.py)",
-      "Bash(dir screenshots /b /o-d)",
-      "Bash(git mv MCP-PHASE-A-IMPLEMENTED.md docs/)",
-      "Bash(git mv MCP-PHASE1-FAILURE-ANALYSIS.md docs/)",
-      "Bash(git mv HITL-MCP-IMPLEMENTATION-SUMMARY.md docs/)"
+      "Bash(git reset HEAD~1)",
+      "Bash(git reset HEAD hitl/salesforce_auth.json)"
     ],
     "deny": [],
     "ask": []

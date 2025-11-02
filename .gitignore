@@ -89,3 +89,9 @@ tmp/
 temp/
 *.tmp
 /validation/scratch/
+
+# HITL (Human-in-the-Loop) temporary files
+hitl/salesforce_auth.json  # Auth cookies - sensitive data
+hitl/continue.ok           # HITL continue signal
+hitlcontinue.ok            # HITL continue signal (legacy)
+nul                        # Temporary null file
