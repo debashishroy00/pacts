@@ -458,6 +458,14 @@ async def discover_selector(browser, intent) -> Optional[Dict[str, Any]]:
     target_val = intent.get("target")
     logger.info(f"[Discovery] Intent received: element={element} target={target_val} within={within}")
 
+    # CRITICAL: Wait for page to stabilize before discovery (Salesforce SPAs load async)
+    # This prevents premature discovery when elements haven't rendered yet
+    try:
+        await browser.page.wait_for_load_state("domcontentloaded", timeout=3000)
+        await browser.page.wait_for_timeout(1000)  # Additional settle time
+    except Exception:
+        pass  # Non-critical - continue with discovery
+
     # PRIORITY 0: Dialog-scoped discovery for Salesforce App Launcher (immediate fix)
     if within:
         logger.info(f"[Discovery] ⭐ WITHIN HINT DETECTED: target='{target}' within='{within}'")
@@ -765,7 +773,29 @@ async def reprobe_with_alternates(
         if result:
             return result
 
-    # All strategies exhausted
+    # All strategies exhausted - add debugging to see what's available
+    print(f"[Discovery] ❌ All strategies exhausted for: '{element_name}'")
+    try:
+        # Wait a moment for page to fully load
+        await browser.page.wait_for_timeout(2000)
+
+        # List all buttons on the page for debugging
+        all_buttons = browser.page.get_by_role("button")
+        button_count = await all_buttons.count()
+        print(f"[Discovery] 🔍 DEBUG: Found {button_count} total buttons on page")
+
+        # Show first 15 buttons with their accessible names
+        for i in range(min(15, button_count)):
+            try:
+                btn = all_buttons.nth(i)
+                btn_name = await btn.get_attribute("aria-label") or await btn.inner_text() or "(no text)"
+                btn_visible = await btn.is_visible()
+                print(f"[Discovery] 🔍   Button {i}: '{btn_name[:60]}' (visible={btn_visible})")
+            except Exception:
+                pass
+    except Exception as debug_error:
+        print(f"[Discovery] Failed to debug buttons: {debug_error}")
+
     return None
 
 

@@ -1,12 +1,8 @@
 {
   "permissions": {
     "allow": [
-      "Bash(git check-ignore -v hitl/salesforce_auth.json)",
-      "Bash(cat .gitignore)",
-      "Bash(git add hitl/salesforce_auth.json)",
-      "Bash(git add .gitignore)",
-      "Bash(git commit -m \"fix(gitignore): Remove inline comments to properly ignore auth files\n\nGit doesn''t support inline comments in .gitignore patterns.\nRemoved comments to ensure hitl/salesforce_auth.json is properly ignored.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>\")",
-      "Bash(python -m backend.cli.main test --req salesforce_opportunity_postlogin --headed --slow-mo 800)"
+      "Bash(python -m backend.cli.main test --req salesforce_opportunity_postlogin --headed --slow-mo 1200)",
+      "Bash(python -m backend.cli.main test --req salesforce_opportunity_postlogin --headed --slow-mo 1000)"
     ],
     "deny": [],
     "ask": []
