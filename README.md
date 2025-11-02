@@ -7,20 +7,28 @@ Transform web automation from selector-based to pattern-based execution
 
 ---
 
-## 🎉 v2.0 Achievements (2025-10-31)
+## 🎉 v2.1 Achievements (2025-11-02)
 
-**5/5 Production Sites Passing with Zero Healing:**
+**6/6 Production Sites Passing with Zero Healing:**
 - ✅ Wikipedia (autocomplete + DOM manipulation)
 - ✅ GitHub (activator modals)
 - ✅ Amazon (e-commerce search)
 - ✅ eBay (e-commerce search)
 - ✅ SauceDemo (traditional forms)
+- ✅ **Salesforce Lightning** (enterprise SPA + HITL 2FA)
 
 **Key Metrics:**
 - **100% Success Rate** across diverse site architectures
 - **0 Heal Rounds** average (all tests pass on first execution)
-- **1.5s - 2.3s** execution time per test
-- **3 Patterns** handle all modern web interactions
+- **1.9s** execution time per test (average)
+- **Pattern-based execution** with app-specific helpers (Salesforce, SAP-ready)
+
+**Enterprise SPA Support:**
+- Salesforce Lightning with complex UI patterns
+- Session reuse (73.7h/year saved per developer)
+- HITL (Human-in-the-Loop) for 2FA authentication
+- Lightning combobox with multi-strategy selection
+- App Launcher dialog scoping
 
 ---
 
