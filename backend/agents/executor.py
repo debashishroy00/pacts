@@ -5,6 +5,7 @@ import re
 from ..graph.state import RunState, Failure
 from ..runtime.browser_manager import BrowserManager
 from ..runtime.policies import five_point_gate
+from ..runtime import salesforce_helpers as sf
 from ..telemetry.tracing import traced
 from ..mcp.mcp_client import USE_MCP
 from .execution_helpers import press_with_fallbacks, fill_with_activator, handle_spa_navigation
@@ -58,74 +59,9 @@ async def _perform_action(browser, action: str, selector: str, value: Optional[s
             role = await element_handle.get_attribute("role")
             tag_name = await element_handle.evaluate("el => el.tagName.toLowerCase()")
 
-            # Lightning combobox (Salesforce pattern)
+            # Salesforce Lightning combobox (app-specific pattern)
             if role == "combobox":
-                print(f"[EXEC] 🔧 Lightning combobox detected: '{value}'")
-                await locator.click(timeout=5000)
-                await browser.page.wait_for_timeout(2000)  # Wait for dropdown to fully render
-
-                # Try exact match first
-                option = browser.page.get_by_role("option", name=re.compile(f"^{re.escape(value)}$", re.I))
-                option_count = await option.count()
-
-                # If exact match fails, try partial match
-                if option_count == 0:
-                    print(f"[EXEC] 🔍 Exact match failed for '{value}', trying partial match...")
-                    option = browser.page.get_by_role("option", name=re.compile(re.escape(value), re.I))
-                    option_count = await option.count()
-
-                # Debug: Show all available options if still not found
-                if option_count == 0:
-                    print(f"[EXEC] 🔍 Debugging: Listing all available options...")
-                    all_options = browser.page.get_by_role("option")
-                    total_options = await all_options.count()
-                    print(f"[EXEC] 🔍 Found {total_options} option elements with role='option'")
-
-                    # Try listitem role (Salesforce often uses this)
-                    if total_options == 0:
-                        print(f"[EXEC] 🔍 Trying role='listitem'...")
-                        all_options = browser.page.get_by_role("listitem")
-                        total_options = await all_options.count()
-                        print(f"[EXEC] 🔍 Found {total_options} listitem elements")
-
-                        if total_options > 0:
-                            # Search for value in listitems
-                            print(f"[EXEC] 🔍 Searching through {total_options} listitems for '{value}'...")
-                            for i in range(total_options):
-                                try:
-                                    opt = all_options.nth(i)
-                                    opt_text = await opt.inner_text()
-                                    opt_text_clean = opt_text.strip() if opt_text else ""
-
-                                    # Debug: Show first 10 listitem texts
-                                    if i < 10:
-                                        print(f"[EXEC] 🔍   Listitem {i}: '{opt_text_clean[:50]}'")
-
-                                    if opt_text_clean and value.lower() in opt_text_clean.lower():
-                                        print(f"[EXEC] ✅ Found '{value}' in listitem {i}, clicking...")
-                                        await opt.click(timeout=5000)
-                                        print(f"[EXEC] ✅ Selected '{value}'")
-                                        return True
-                                except Exception as e:
-                                    if i < 10:
-                                        print(f"[EXEC] ⚠️ Error reading listitem {i}: {e}")
-                                    continue
-
-                    # Fallback: Try plain text search
-                    if total_options == 0:
-                        print(f"[EXEC] 🔍 Fallback: Searching by text...")
-                        text_option = browser.page.get_by_text(value, exact=True)
-                        if await text_option.count() > 0:
-                            await text_option.first.click(timeout=5000)
-                            print(f"[EXEC] ✅ Selected '{value}' via text search")
-                            return True
-
-                    print(f"[EXEC] ❌ Option '{value}' not found after all attempts")
-                    return False
-
-                await option.first.click(timeout=5000)
-                print(f"[EXEC] ✅ Selected '{value}'")
-                return True
+                return await sf.handle_lightning_combobox(browser, locator, value)
 
             # Native HTML select
             elif tag_name == "select":
@@ -305,197 +241,14 @@ async def run(state: RunState) -> RunState:
         state.step_idx += 1
         return state
 
-    # Salesforce App Launcher search fallback
-    if selector and selector.startswith("LAUNCHER_SEARCH:"):
-        target = selector.split(":", 1)[1]
-        print(f"[EXEC] Launcher search detected for: {target}")
+    # Salesforce App Launcher search (app-specific pattern)
+    if sf.is_launcher_search(selector):
+        target = sf.extract_launcher_target(selector)
+        success = await sf.handle_launcher_search(browser, target)
 
-        MAX_LAUNCHER_RETRIES = 2
-        last_error = None
-
-        for retry_attempt in range(MAX_LAUNCHER_RETRIES):
-            try:
-                # Find App Launcher dialog
-                panel = browser.page.get_by_role("dialog", name=re.compile("app.?launcher", re.I))
-                panel_count = await panel.count()
-
-                if panel_count == 0:
-                    raise Exception(f"App Launcher panel not found (retry {retry_attempt+1}/{MAX_LAUNCHER_RETRIES})")
-
-                # Use search box
-                search = panel.get_by_role("combobox", name=re.compile("search", re.I)).first
-                # Clear any previous search text (important for retries)
-                await search.clear()
-                await browser.page.wait_for_timeout(500)
-                await search.fill(target)
-                await browser.page.wait_for_timeout(2000)  # Increased wait for search results to populate
-
-                # Get current URL (to detect if clicking result navigates)
-                old_url = browser.page.url
-
-                # Try to click the result directly (don't press Enter - it might clear results)
-                try:
-                    # Click the result (button or link)
-                    # Use more lenient pattern - match if target appears anywhere in name (not just exact match)
-                    result_button = panel.get_by_role("button", name=re.compile(re.escape(target), re.I))
-                    button_count = await result_button.count()
-
-                    if button_count > 0:
-                        await result_button.first.click(timeout=5000)
-                        print(f"[EXEC] ✅ Clicked launcher result button for: {target}")
-                        break  # Success
-                    else:
-                        # Try link
-                        result_link = panel.get_by_role("link", name=re.compile(re.escape(target), re.I))
-                        link_count = await result_link.count()
-                        if link_count > 0:
-                            await result_link.first.click(timeout=5000)
-                            print(f"[EXEC] ✅ Clicked launcher result link for: {target}")
-                            break  # Success
-                        else:
-                            # Try ANY element with text (Salesforce uses divs/spans with click handlers)
-                            # BUT filter for clickable elements only (Option A: Filter by clickability)
-                            result_text = panel.get_by_text(target, exact=False)
-                            text_count = await result_text.count()
-                            if text_count > 0:
-                                print(f"[EXEC] 🔍 Found {text_count} elements with text '{target}', filtering for clickable ones...")
-
-                                # Iterate through candidates and find the clickable one
-                                clicked = False
-                                for i in range(text_count):
-                                    candidate = result_text.nth(i)
-                                    try:
-                                        # Check if element is clickable
-                                        tag = await candidate.evaluate("el => el.tagName.toLowerCase()")
-                                        href = await candidate.get_attribute("href")
-                                        role = await candidate.get_attribute("role")
-                                        classes = await candidate.get_attribute("class") or ""
-
-                                        # Log for debugging
-                                        print(f"[EXEC] 🔍   Candidate {i}: tag={tag} href={href} role={role} classes={classes[:50]}")
-
-                                        # Filter: Skip section headings (usually divs without href)
-                                        # Accept: <a> tags with href, or elements with role="link", or specific Salesforce classes
-                                        is_clickable = (
-                                            tag == "a" and href or  # Link with href
-                                            role == "link" or       # ARIA link role
-                                            "slds-truncate" in classes or  # Salesforce list item class
-                                            "forceActionLink" in classes    # Salesforce action link
-                                        )
-
-                                        # If element itself isn't clickable, check parent (text nodes often nested in clickable containers)
-                                        if not is_clickable:
-                                            try:
-                                                parent = await candidate.evaluate("el => el.parentElement")
-                                                if parent:
-                                                    parent_tag = await candidate.evaluate("el => el.parentElement.tagName.toLowerCase()")
-                                                    parent_href = await candidate.evaluate("el => el.parentElement.getAttribute('href')")
-                                                    parent_role = await candidate.evaluate("el => el.parentElement.getAttribute('role')")
-                                                    parent_classes = await candidate.evaluate("el => el.parentElement.getAttribute('class')") or ""
-
-                                                    is_clickable = (
-                                                        parent_tag == "a" and parent_href or
-                                                        parent_role == "link" or
-                                                        "slds-truncate" in parent_classes or
-                                                        "forceActionLink" in parent_classes
-                                                    )
-                                                    if is_clickable:
-                                                        print(f"[EXEC] 🔍   Parent is clickable: {parent_tag}")
-                                            except Exception:
-                                                pass
-
-                                        if is_clickable:
-                                            await candidate.click(timeout=5000)
-                                            print(f"[EXEC] ✅ Clicked clickable text element for: {target} (candidate {i})")
-                                            clicked = True
-                                            break
-                                        else:
-                                            print(f"[EXEC] 🔍   Skipping non-clickable element (candidate {i})")
-                                    except Exception as e:
-                                        print(f"[EXEC] ⚠️ Error checking candidate {i}: {e}")
-                                        continue
-
-                                if clicked:
-                                    break  # Success
-                                else:
-                                    print(f"[EXEC] ❌ No clickable element found among {text_count} candidates")
-                            else:
-                                # MCP DEBUG: Inspect what's actually in the App Launcher
-                                print(f"[EXEC] 🔍 MCP Debug: Inspecting App Launcher contents for '{target}'...")
-                                try:
-                                    # Get all buttons in the panel
-                                    all_buttons = panel.get_by_role("button")
-                                    button_total = await all_buttons.count()
-                                    print(f"[EXEC] 🔍 Found {button_total} buttons in App Launcher")
-
-                                    # Sample first 10 button names
-                                    for i in range(min(10, button_total)):
-                                        btn = all_buttons.nth(i)
-                                        btn_text = await btn.inner_text()
-                                        btn_name = await btn.get_attribute("aria-label") or btn_text
-                                        print(f"[EXEC] 🔍   Button {i}: '{btn_name}' (text: '{btn_text}')")
-
-                                    # Get all links in the panel
-                                    all_links = panel.get_by_role("link")
-                                    link_total = await all_links.count()
-                                    print(f"[EXEC] 🔍 Found {link_total} links in App Launcher")
-
-                                    # Sample first 10 link names
-                                    for i in range(min(10, link_total)):
-                                        link = all_links.nth(i)
-                                        link_text = await link.inner_text()
-                                        link_name = await link.get_attribute("aria-label") or link_text
-                                        print(f"[EXEC] 🔍   Link {i}: '{link_name}' (text: '{link_text}')")
-
-                                    # ALSO check for ANY element containing the target text (not just button/link)
-                                    print(f"[EXEC] 🔍 Searching for ANY element with text '{target}'...")
-                                    text_locator = panel.get_by_text(target, exact=False)
-                                    text_count = await text_locator.count()
-                                    print(f"[EXEC] 🔍 Found {text_count} elements containing '{target}'")
-
-                                    for i in range(min(5, text_count)):
-                                        elem = text_locator.nth(i)
-                                        elem_text = await elem.inner_text()
-                                        elem_role = await elem.get_attribute("role")
-                                        elem_tag = await elem.evaluate("el => el.tagName")
-                                        print(f"[EXEC] 🔍   Element {i}: tag='{elem_tag}' role='{elem_role}' text='{elem_text}'")
-                                except Exception as debug_error:
-                                    print(f"[EXEC] ⚠️ MCP debug failed: {debug_error}")
-
-                                raise Exception(f"No results found for '{target}' in App Launcher")
-                except Exception as click_error:
-                    # Even if click fails, check if we navigated successfully
-                    new_url = browser.page.url
-                    if new_url != old_url:
-                        print(f"[EXEC] ✅ Navigation detected despite click error: {new_url}")
-                        break  # Success
-                    else:
-                        raise click_error
-
-            except Exception as e:
-                last_error = e
-
-                if retry_attempt < MAX_LAUNCHER_RETRIES - 1:
-                    # Retry logic
-                    print(f"[EXEC] ⚠️ Launcher search retry {retry_attempt+1}/{MAX_LAUNCHER_RETRIES} for: {target}")
-
-                    # Close and reopen App Launcher
-                    await browser.page.keyboard.press("Escape")
-                    await browser.page.wait_for_timeout(500)
-
-                    app_launcher_button = browser.page.get_by_role("button", name=re.compile("app.?launcher", re.I))
-                    await app_launcher_button.first.click()
-                    await browser.page.wait_for_timeout(1000)
-
-                    continue  # Try again
-                else:
-                    # Final retry failed
-                    print(f"[EXEC] ❌ Launcher search failed after {MAX_LAUNCHER_RETRIES} retries: {target}")
-                    print(f"[EXEC] Diagnostics: url={browser.page.url}, last_error={str(last_error)}")
-                    state.failure = Failure.timeout
-                    return state
-
-        print(f"[EXEC] Launcher search succeeded for: {target}")
+        if not success:
+            state.failure = Failure.timeout
+            return state
 
         # Mark step as complete
         state.step_idx += 1
