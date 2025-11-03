@@ -17,12 +17,14 @@ from __future__ import annotations
 import sys
 import asyncio
 import json
+import os
 from pathlib import Path
 from typing import Optional
 import click
 
 from ..graph.state import RunState
 from ..graph.build_graph import ainvoke_graph
+from ..storage.init import get_storage, shutdown_storage
 
 
 # Color codes for terminal output
@@ -62,6 +64,44 @@ def print_error(text: str):
 def print_info(text: str):
     """Print info message."""
     print(f"{Colors.BLUE}ℹ {text}{Colors.END}")
+
+
+async def _run_pipeline_with_storage(state: RunState) -> RunState:
+    """
+    Run pipeline with storage initialization and cleanup.
+
+    Args:
+        state: Initial run state
+
+    Returns:
+        Final run state after execution
+    """
+    storage = None
+
+    try:
+        # Initialize storage if memory is enabled
+        if os.getenv("ENABLE_MEMORY", "true").lower() == "true":
+            print("[STORAGE] Initializing memory & persistence...")
+            storage = await get_storage()
+
+            if storage:
+                health = await storage.healthcheck()
+                if health.get("healthy"):
+                    print(f"{Colors.GREEN}✓ Memory system ready{Colors.END}")
+                    if os.getenv("CACHE_DEBUG", "false").lower() == "true":
+                        print("[STORAGE] Cache debug mode enabled")
+                else:
+                    print(f"{Colors.YELLOW}⚠ Memory system degraded, continuing without cache{Colors.END}")
+
+        # Run the actual pipeline
+        result = await ainvoke_graph(state)
+
+        return result
+
+    finally:
+        # Cleanup storage on exit
+        if storage:
+            await shutdown_storage()
 
 
 def _check_mcp_status(mcp_enabled: bool) -> dict:
@@ -561,7 +601,7 @@ def test(req: str, url: Optional[str], headed: bool, slow_mo: int, mcp: bool):
         print("  Pipeline: Planner → POMBuilder → Executor ↔ OracleHealer → VerdictRCA → Generator")
         print()
 
-        result = asyncio.run(ainvoke_graph(state))
+        result = asyncio.run(_run_pipeline_with_storage(state))
 
         # Extract RunState from result
         if isinstance(result, RunState):
