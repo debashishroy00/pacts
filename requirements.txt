@@ -13,9 +13,11 @@ langsmith>=0.2.0,<0.3.0         # newer client with run_tree + tracing improveme
 
 # Data / storage
 psycopg[binary]>=3.2,<4.0
+asyncpg>=0.29.0,<0.30.0         # Async Postgres driver (faster than psycopg for asyncio)
 sqlalchemy>=2.0.25,<3.0
 alembic>=1.13,<2.0
 redis>=5.0,<6.0
+redis[hiredis]>=5.0,<6.0        # Redis with C parser for performance
 
 # Config / utils
 python-dotenv>=1.0.0

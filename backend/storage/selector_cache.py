@@ -1,0 +1,472 @@
+"""
+Selector Cache - Dual-layer caching for POM selectors.
+
+Architecture:
+    Read:  Redis (1h TTL) → Postgres (7d retention) → Discovery
+    Write: Postgres → Redis (warm cache)
+
+Drift Detection:
+    - 2 consecutive misses → invalidate
+    - DOM hash Δ > 35% → invalidate
+"""
+
+import os
+import logging
+import hashlib
+from typing import Optional, Dict, Any
+from datetime import datetime, timedelta
+
+from .base import BaseStorage
+
+logger = logging.getLogger(__name__)
+
+
+class SelectorCache(BaseStorage):
+    """
+    Manages selector caching with Redis (fast) + Postgres (persistent).
+
+    Telemetry Counters:
+    - cache_hit_redis: Fast cache hits
+    - cache_hit_postgres: Persistent cache hits
+    - cache_miss: Full discovery required
+    - cache_invalidated: Drift detected
+    - drift_detected: DOM changes detected
+    """
+
+    def __init__(self, db, cache):
+        super().__init__(db, cache)
+        self._redis_ttl = int(os.getenv("REDIS_CACHE_TTL", "3600"))  # 1 hour
+        self._postgres_retention_days = int(
+            os.getenv("SELECTOR_CACHE_RETENTION_DAYS", "7")
+        )
+        self._drift_threshold = float(os.getenv("CACHE_DRIFT_THRESHOLD", "35.0"))
+
+    # ==========================================================================
+    # Public API
+    # ==========================================================================
+
+    async def get_selector(
+        self, url: str, element: str, dom_hash: Optional[str] = None
+    ) -> Optional[Dict[str, Any]]:
+        """
+        Get cached selector (dual-layer lookup).
+
+        Read Pattern:
+        1. Check Redis (fast, 1-hour TTL)
+        2. Check Postgres (persistent, 7-day retention)
+        3. Return None (cache miss, run discovery)
+
+        Args:
+            url: Page URL
+            element: Element name
+            dom_hash: Current DOM hash for drift detection (optional)
+
+        Returns:
+            {
+                "selector": str,
+                "strategy": str,
+                "confidence": float,
+                "source": "redis" | "postgres",
+                "last_verified": timestamp
+            }
+            or None if cache miss
+        """
+        # Try Redis first (fast path)
+        redis_result = await self._get_from_redis(url, element)
+        if redis_result:
+            # Validate with drift detection
+            if dom_hash and await self._check_drift(url, element, dom_hash):
+                logger.info(f"[CACHE] 🔄 Drift detected for {element}, invalidating")
+                await self._record_metric("drift_detected")
+                await self.invalidate_selector(url, element)
+                return None
+
+            await self._record_metric("cache_hit_redis")
+            redis_result["source"] = "redis"
+            return redis_result
+
+        # Try Postgres (persistent cache)
+        postgres_result = await self._get_from_postgres(url, element)
+        if postgres_result:
+            # Validate with drift detection
+            if dom_hash and await self._check_drift(url, element, dom_hash):
+                logger.info(f"[CACHE] 🔄 Drift detected for {element}, invalidating")
+                await self._record_metric("drift_detected")
+                await self.invalidate_selector(url, element)
+                return None
+
+            await self._record_metric("cache_hit_postgres")
+
+            # Warm Redis cache
+            await self._save_to_redis(
+                url,
+                element,
+                postgres_result["selector"],
+                postgres_result["confidence"],
+                postgres_result["strategy"],
+            )
+
+            postgres_result["source"] = "postgres"
+            return postgres_result
+
+        # Cache miss - full discovery needed
+        await self._record_metric("cache_miss")
+        await self._increment_miss_count(url, element)
+        return None
+
+    async def save_selector(
+        self,
+        url: str,
+        element: str,
+        selector: str,
+        confidence: float,
+        strategy: str,
+        dom_hash: Optional[str] = None,
+    ):
+        """
+        Save selector to both caches.
+
+        Write Pattern:
+        1. Save to Postgres (persistent, source of truth)
+        2. Save to Redis (fast cache)
+        3. Store DOM hash for drift detection
+
+        Args:
+            url: Page URL
+            element: Element name
+            selector: CSS/XPath selector
+            confidence: Confidence score (0.0-1.0)
+            strategy: Discovery strategy used
+            dom_hash: DOM hash for drift detection
+        """
+        url_pattern = self._normalize_url(url)
+
+        # Save to Postgres (upsert)
+        await self.db.execute(
+            """
+            INSERT INTO selector_cache (
+                url_pattern, element_name, selector, strategy, confidence,
+                hit_count, miss_count, last_verified_at, created_at
+            ) VALUES ($1, $2, $3, $4, $5, 0, 0, NOW(), NOW())
+            ON CONFLICT (url_pattern, element_name)
+            DO UPDATE SET
+                selector = EXCLUDED.selector,
+                strategy = EXCLUDED.strategy,
+                confidence = EXCLUDED.confidence,
+                last_verified_at = NOW(),
+                miss_count = 0
+            """,
+            url_pattern,
+            element,
+            selector,
+            strategy,
+            confidence,
+        )
+
+        # Save to Redis (warm cache)
+        await self._save_to_redis(url, element, selector, confidence, strategy)
+
+        # Store DOM hash for drift detection
+        if dom_hash:
+            await self._save_dom_hash(url, element, dom_hash)
+
+        logger.info(
+            f"[CACHE] ✅ Saved selector: {element} → {selector[:50]} (strategy: {strategy})"
+        )
+
+    async def invalidate_selector(self, url: str, element: str):
+        """
+        Invalidate selector in both caches.
+
+        Used when:
+        - Drift detected (DOM hash changed > threshold)
+        - 2 consecutive misses
+        - Explicit invalidation
+
+        Args:
+            url: Page URL
+            element: Element name
+        """
+        url_pattern = self._normalize_url(url)
+
+        # Delete from Redis
+        redis_key = self._redis_key(url, element)
+        await self.cache.delete(redis_key)
+
+        # Delete from Postgres
+        await self.db.execute(
+            """
+            DELETE FROM selector_cache
+            WHERE url_pattern = $1 AND element_name = $2
+            """,
+            url_pattern,
+            element,
+        )
+
+        # Delete DOM hash
+        dom_hash_key = self._dom_hash_key(url, element)
+        await self.cache.delete(dom_hash_key)
+
+        await self._record_metric("cache_invalidated")
+        logger.info(f"[CACHE] 🗑️ Invalidated: {element}")
+
+    async def get_cache_stats(self) -> Dict[str, Any]:
+        """
+        Get cache statistics.
+
+        Returns:
+            {
+                "redis_hits": int,
+                "postgres_hits": int,
+                "misses": int,
+                "hit_rate": float,
+                "drift_detections": int,
+                "invalidations": int,
+                "total_cached": int
+            }
+        """
+        redis_hits = await self._get_metric("cache_hit_redis")
+        postgres_hits = await self._get_metric("cache_hit_postgres")
+        misses = await self._get_metric("cache_miss")
+        drift = await self._get_metric("drift_detected")
+        invalidations = await self._get_metric("cache_invalidated")
+
+        total_requests = redis_hits + postgres_hits + misses
+        hit_rate = (
+            (redis_hits + postgres_hits) / total_requests * 100
+            if total_requests > 0
+            else 0.0
+        )
+
+        # Get total cached entries from Postgres
+        total_cached = await self.db.fetchval(
+            "SELECT COUNT(*) FROM selector_cache"
+        )
+
+        return {
+            "redis_hits": redis_hits,
+            "postgres_hits": postgres_hits,
+            "misses": misses,
+            "hit_rate": round(hit_rate, 2),
+            "drift_detections": drift,
+            "invalidations": invalidations,
+            "total_cached": total_cached or 0,
+        }
+
+    async def healthcheck(self) -> bool:
+        """Check if cache is healthy."""
+        try:
+            # Test Redis
+            redis_ok = await self.cache.healthcheck()
+
+            # Test Postgres
+            db_ok = await self.db.healthcheck()
+
+            return redis_ok and db_ok
+        except Exception as e:
+            logger.error(f"[CACHE] Healthcheck failed: {e}")
+            return False
+
+    # ==========================================================================
+    # Private Methods - Redis Layer
+    # ==========================================================================
+
+    async def _get_from_redis(
+        self, url: str, element: str
+    ) -> Optional[Dict[str, Any]]:
+        """Get selector from Redis."""
+        key = self._redis_key(url, element)
+        data = await self.cache.get_json(key)
+
+        if data:
+            logger.debug(f"[CACHE] Redis HIT: {element}")
+            return data
+
+        logger.debug(f"[CACHE] Redis MISS: {element}")
+        return None
+
+    async def _save_to_redis(
+        self, url: str, element: str, selector: str, confidence: float, strategy: str
+    ):
+        """Save selector to Redis with TTL."""
+        key = self._redis_key(url, element)
+        data = {
+            "selector": selector,
+            "confidence": confidence,
+            "strategy": strategy,
+            "last_verified": datetime.now().timestamp(),
+        }
+        await self.cache.set_json(key, data, ttl=self._redis_ttl)
+
+    def _redis_key(self, url: str, element: str) -> str:
+        """Generate Redis key."""
+        url_pattern = self._normalize_url(url)
+        return f"pom:{url_pattern}:{element}"
+
+    # ==========================================================================
+    # Private Methods - Postgres Layer
+    # ==========================================================================
+
+    async def _get_from_postgres(
+        self, url: str, element: str
+    ) -> Optional[Dict[str, Any]]:
+        """Get selector from Postgres."""
+        url_pattern = self._normalize_url(url)
+
+        row = await self.db.fetchrow(
+            """
+            SELECT selector, strategy, confidence, last_verified_at
+            FROM selector_cache
+            WHERE url_pattern = $1 AND element_name = $2
+              AND last_verified_at > NOW() - INTERVAL '1 day' * $3
+            ORDER BY hit_count DESC
+            LIMIT 1
+            """,
+            url_pattern,
+            element,
+            self._postgres_retention_days,
+        )
+
+        if row:
+            # Update hit count
+            await self.db.execute(
+                """
+                UPDATE selector_cache
+                SET hit_count = hit_count + 1,
+                    last_verified_at = NOW(),
+                    miss_count = 0
+                WHERE url_pattern = $1 AND element_name = $2
+                """,
+                url_pattern,
+                element,
+            )
+
+            logger.debug(f"[CACHE] Postgres HIT: {element}")
+            return {
+                "selector": row["selector"],
+                "strategy": row["strategy"],
+                "confidence": float(row["confidence"]),
+                "last_verified": row["last_verified_at"].timestamp(),
+            }
+
+        logger.debug(f"[CACHE] Postgres MISS: {element}")
+        return None
+
+    async def _increment_miss_count(self, url: str, element: str):
+        """
+        Increment miss count in Postgres.
+
+        If miss_count >= 2, invalidate cache (drift suspected).
+        """
+        url_pattern = self._normalize_url(url)
+
+        result = await self.db.fetchrow(
+            """
+            UPDATE selector_cache
+            SET miss_count = miss_count + 1
+            WHERE url_pattern = $1 AND element_name = $2
+            RETURNING miss_count
+            """,
+            url_pattern,
+            element,
+        )
+
+        if result and result["miss_count"] >= 2:
+            logger.warning(
+                f"[CACHE] 2 consecutive misses for {element}, invalidating"
+            )
+            await self.invalidate_selector(url, element)
+
+    # ==========================================================================
+    # Private Methods - Drift Detection
+    # ==========================================================================
+
+    async def _check_drift(self, url: str, element: str, current_hash: str) -> bool:
+        """
+        Check if DOM has drifted beyond threshold.
+
+        Args:
+            url: Page URL
+            element: Element name
+            current_hash: Current DOM hash
+
+        Returns:
+            True if drift detected (Δ > threshold), False otherwise
+        """
+        cached_hash = await self._get_dom_hash(url, element)
+        if not cached_hash:
+            return False
+
+        # Calculate Hamming distance as percentage
+        drift_pct = self._calculate_hash_distance(cached_hash, current_hash)
+
+        if drift_pct > self._drift_threshold:
+            logger.warning(
+                f"[CACHE] Drift {drift_pct:.1f}% detected for {element} (threshold: {self._drift_threshold}%)"
+            )
+            return True
+
+        return False
+
+    async def _save_dom_hash(self, url: str, element: str, dom_hash: str):
+        """Save DOM hash for drift detection."""
+        key = self._dom_hash_key(url, element)
+        await self.cache.set(key, dom_hash, ttl=self._redis_ttl)
+
+    async def _get_dom_hash(self, url: str, element: str) -> Optional[str]:
+        """Get cached DOM hash."""
+        key = self._dom_hash_key(url, element)
+        return await self.cache.get(key)
+
+    def _dom_hash_key(self, url: str, element: str) -> str:
+        """Generate DOM hash key."""
+        url_pattern = self._normalize_url(url)
+        return f"dom_hash:{url_pattern}:{element}"
+
+    def _calculate_hash_distance(self, hash1: str, hash2: str) -> float:
+        """
+        Calculate Hamming distance between two hashes as percentage.
+
+        Args:
+            hash1: First hash
+            hash2: Second hash
+
+        Returns:
+            Percentage difference (0-100)
+        """
+        if len(hash1) != len(hash2):
+            return 100.0
+
+        differences = sum(c1 != c2 for c1, c2 in zip(hash1, hash2))
+        return (differences / len(hash1)) * 100
+
+    # ==========================================================================
+    # Utility Methods
+    # ==========================================================================
+
+    def _normalize_url(self, url: str) -> str:
+        """
+        Normalize URL to pattern for cache lookup.
+
+        Examples:
+            https://app.com/users/123 → https://app.com/users/%
+            https://app.com/page?id=5 → https://app.com/page%
+
+        Args:
+            url: Full URL
+
+        Returns:
+            Normalized URL pattern
+        """
+        # Remove query parameters
+        if "?" in url:
+            url = url.split("?")[0]
+
+        # Remove trailing IDs/hashes (common pattern)
+        # e.g., /users/123 → /users/%
+        parts = url.rstrip("/").split("/")
+        if parts and parts[-1].isdigit():
+            parts[-1] = "%"
+            return "/".join(parts)
+
+        return url + "%"
