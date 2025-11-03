@@ -5,6 +5,7 @@ Handles POM cache, LangGraph checkpoints, healing counters, and rate limiting.
 """
 
 import os
+import time
 import json
 import redis.asyncio as redis
 from typing import Optional, Any
@@ -171,7 +172,7 @@ class Cache:
             "selector": selector,
             "confidence": confidence,
             "strategy": strategy,
-            "last_verified": int(os.time.time()),
+            "last_verified": int(time.time()),
         }
         ttl = int(os.getenv("REDIS_CACHE_TTL", "3600"))
         await self.set_json(key, value, ttl)

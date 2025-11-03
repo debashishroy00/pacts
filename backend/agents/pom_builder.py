@@ -3,7 +3,12 @@ from typing import Dict, Any, List
 from ..graph.state import RunState, Failure
 from ..runtime.browser_manager import BrowserManager
 from ..runtime.discovery import discover_selector
+from ..runtime.discovery_cached import discover_selector_cached
 from ..telemetry.tracing import traced
+import os
+
+# Use cached discovery if memory is enabled
+USE_CACHE = os.getenv("ENABLE_MEMORY", "true").lower() == "true"
 
 @traced("pom_builder")
 async def run(state: RunState) -> RunState:
@@ -61,7 +66,11 @@ async def run(state: RunState) -> RunState:
                     "value": current_step.get("value"),
                     "within": current_step.get("within")  # Region scope hint
                 }
-                cand = await discover_selector(browser, intent)
+                # Use cached discovery if enabled
+                if USE_CACHE:
+                    cand = await discover_selector_cached(browser, intent)
+                else:
+                    cand = await discover_selector(browser, intent)
         else:
             # First step - always discover
             intent = {
@@ -70,7 +79,11 @@ async def run(state: RunState) -> RunState:
                 "value": current_step.get("value"),
                 "within": current_step.get("within")  # Region scope hint
             }
-            cand = await discover_selector(browser, intent)
+            # Use cached discovery if enabled
+            if USE_CACHE:
+                cand = await discover_selector_cached(browser, intent)
+            else:
+                cand = await discover_selector(browser, intent)
         print(f"[POMBuilder] Discovery result: {cand}")
         if cand:
             # Update ONLY the current step in the plan
@@ -112,7 +125,12 @@ async def run(state: RunState) -> RunState:
 
     plan: List[Dict[str, Any]] = []
     for step in state.context.get("intents", []):
-        cand = await discover_selector(browser, step)
+        # Use cached discovery if enabled
+        if USE_CACHE:
+            cand = await discover_selector_cached(browser, step)
+        else:
+            cand = await discover_selector(browser, step)
+
         if cand:
             plan.append({
                 **step,
