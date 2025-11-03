@@ -230,6 +230,11 @@ $$ LANGUAGE plpgsql;
 -- Initial Data: Sample configuration
 -- =============================================================================
 
+-- Create SYSTEM run for configuration metrics
+INSERT INTO runs (req_id, test_name, url, status, total_steps, completed_steps, start_time)
+VALUES ('SYSTEM', 'System Configuration', 'N/A', 'pass', 0, 0, NOW())
+ON CONFLICT (req_id) DO NOTHING;
+
 -- Insert sample metrics configuration
 INSERT INTO metrics (req_id, metric_name, metric_value, metric_unit)
 VALUES ('SYSTEM', 'cache_ttl_seconds', 3600, 'seconds')
