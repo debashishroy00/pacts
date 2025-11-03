@@ -1,28 +1,7 @@
 {
   "permissions": {
     "allow": [
-      "Bash(cat backend/api/main.py)",
-      "Bash(python -c \"import sys; print(sys.version)\")",
-      "Bash(python scripts/verify_day11_12.py)",
-      "Bash(chcp 65001)",
-      "Bash(docker-compose ps)",
-      "Bash(docker-compose exec -T redis redis-cli FLUSHALL)",
-      "Bash(docker-compose exec -T postgres psql -U pacts -d pacts -c \"DELETE FROM selector_cache WHERE url LIKE ''%wikipedia%'';\")",
-      "Bash(docker-compose exec -T postgres psql -U pacts -d pacts -c \"\\d selector_cache\")",
-      "Bash(docker-compose exec -T postgres psql -U pacts -d pacts -c \"DELETE FROM selector_cache WHERE url_pattern LIKE ''%wikipedia%'';\")",
-      "Bash(docker-compose run --rm pacts-runner python -m backend.cli.main test --req wikipedia_search)",
-      "Bash(tee /tmp/baseline_test.log)",
-      "Bash(tee /tmp/warm_test.log)",
-      "Bash(docker-compose run --rm pacts-runner python scripts/print_metrics.py)",
-      "Bash(docker-compose exec -T postgres psql -U pacts -d pacts -c \"SELECT req_id, status, completed_steps, heal_rounds, duration_ms FROM runs ORDER BY created_at DESC LIMIT 5;\")",
-      "Bash(docker-compose exec -T postgres psql -U pacts -d pacts -c \"SELECT element_name, url_pattern, selector, strategy, hit_count, miss_count FROM selector_cache WHERE element_name LIKE ''%Search%'' ORDER BY created_at DESC;\")",
-      "Bash(docker-compose exec -T postgres psql -U pacts -d pacts -c \"SELECT element_name, url_pattern, strategy, success_count, failure_count, avg_heal_time_ms FROM heal_history ORDER BY created_at DESC LIMIT 10;\")",
-      "Bash(docker-compose exec -T postgres psql -U pacts -d pacts -c \"SELECT element_name, url_pattern, strategy, success_count, failure_count, avg_heal_time_ms FROM heal_history LIMIT 10;\")",
-      "Bash(for i in {3..5})",
-      "Bash(do echo \"=== LOOP $i/5 ===\")",
-      "Bash(done)",
-      "Bash(docker-compose exec -T postgres psql -U pacts -d pacts -c \"SELECT req_id, status, completed_steps, heal_rounds FROM runs WHERE req_id = ''wikipedia_search'';\")",
-      "Bash(docker-compose exec -T postgres psql -U pacts -d pacts -c \"SELECT artifact_type, COUNT(*) FROM artifacts WHERE req_id = ''wikipedia_search'' GROUP BY artifact_type;\")"
+      "Bash(git checkout upload.bat)"
     ],
     "deny": [],
     "ask": []

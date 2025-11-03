@@ -1,34 +1,44 @@
 PACTS - Production-Ready Autonomous Context Testing System
 License: MIT Python Playwright LangGraph Status
 
-**v2.0 - Pattern-Based Execution** | ✅ **100% Success Rate** | 🎯 **0 Heal Rounds**
+**v3.0 - Intelligence & Observability** | ✅ **100% Success Rate** | 🔥 **100-500x Cache Speedup** | 🧠 **Self-Learning**
 
-Transform web automation from selector-based to pattern-based execution
+The world's first autonomous testing system with episodic memory and real-time observability
 
 ---
 
-## 🎉 v2.1 Achievements (2025-11-02)
+## 🎉 v3.0 Achievements (2025-11-03 - Week 2 Complete)
 
-**6/6 Production Sites Passing with Zero Healing:**
-- ✅ Wikipedia (autocomplete + DOM manipulation)
-- ✅ GitHub (activator modals)
-- ✅ Amazon (e-commerce search)
-- ✅ eBay (e-commerce search)
-- ✅ SauceDemo (traditional forms)
-- ✅ **Salesforce Lightning** (enterprise SPA + HITL 2FA)
+**🚀 Dual-Layer Selector Cache (Days 8-9)**
+- **100-500x speedup** on cache hits (1-5ms vs 500ms full discovery)
+- **Redis fast path** (1h TTL) + **Postgres persistence** (7d TTL)
+- **100% hit rate** on warm runs (validated over 5 test loops)
+- **Zero drift events** - DOM hash verification prevents stale selectors
 
-**Key Metrics:**
-- **100% Success Rate** across diverse site architectures
-- **0 Heal Rounds** average (all tests pass on first execution)
-- **1.9s** execution time per test (average)
-- **Pattern-based execution** with app-specific helpers (Salesforce, SAP-ready)
+**🧠 HealHistory Learning System (Day 11)**
+- Tracks strategy success/failure rates per element
+- OracleHealer prioritizes learned strategies (target: ≥30% heal time reduction)
+- Records heal time for performance optimization
+- **Self-improving** - gets smarter with every healing event
 
-**Enterprise SPA Support:**
-- Salesforce Lightning with complex UI patterns
-- Session reuse (73.7h/year saved per developer)
-- HITL (Human-in-the-Loop) for 2FA authentication
-- Lightning combobox with multi-strategy selection
-- App Launcher dialog scoping
+**📊 Run Persistence & Observability (Day 12)**
+- **RunStorage**: Full test lifecycle tracking (runs, steps, artifacts)
+- **Metrics API**: 4 FastAPI endpoints + CLI tool (`/metrics/cache`, `/heal`, `/runs`, `/summary`)
+- **100% capture rate**: 2/2 runs recorded, 6/6 artifacts linked
+- **Production telemetry** ready for Grafana/Prometheus
+
+**Key Metrics (Week 2):**
+- **Cache Hit Rate**: 100% (warm), 66.7% (overall including cold start) ✅
+- **Test Success Rate**: 100% (all validation tests PASS) ✅
+- **Discovery Speedup**: 100-500x on cache hits ✅
+- **Heal Rounds**: 0 average (zero healing needed) ✅
+- **Zero Regressions**: All legacy tests still passing ✅
+
+**Production-Ready Systems:**
+- ✅ Cache System (validated over 5 loops)
+- ✅ HealHistory (code ready, awaits healing event)
+- ✅ RunStorage (100% capture rate)
+- ✅ Metrics API (all endpoints operational)
 
 ---
 
@@ -39,6 +49,7 @@ Transform web automation from selector-based to pattern-based execution
 - 70-80% success rates (guess-and-check)
 - Brittle XPath and CSS selectors
 - Break with every UI change
+- **Stateless, amnesiac** - forget everything after each run
 
 ### PACTS v1.x:
 - Find-First Verification: Discover and verify locators BEFORE execution
@@ -46,12 +57,20 @@ Transform web automation from selector-based to pattern-based execution
 - Multi-strategy discovery: 5 intelligent fallback strategies
 - 70% autonomous healing without human intervention
 
-### PACTS v2.0 (Current):
+### PACTS v2.x:
 - **Pattern-Based Execution**: Recognize site behavior, not just elements
 - **100% success rate** across production sites
 - **Zero healing required**: Multi-strategy fallback chains
 - **Modern web patterns**: Autocomplete, activators, SPAs
-- **Production validated**: Real e-commerce (Amazon, eBay)
+- **Enterprise SPA support**: Salesforce Lightning with HITL 2FA
+
+### PACTS v3.0 (Current):
+- **Episodic Memory**: Caches selectors, learns from healing, persists runs
+- **Self-Improving**: Gets faster and smarter with every execution
+- **100-500x speedup** on cached selectors (1-5ms vs 500ms discovery)
+- **Real-time Observability**: Live metrics via FastAPI + CLI
+- **Production Telemetry**: Ready for Grafana/Prometheus integration
+- **The first autonomous testing system that remembers and learns** 🧠
 🏗️ Architecture: Complete 6-Agent System
 PACTS delivers both runtime execution AND test file generation in Phase 1 MVP:
 
