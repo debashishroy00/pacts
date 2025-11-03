@@ -1,0 +1,42 @@
+# PACTS v3.0 Runner - Containerized Test Execution
+# Bypasses Windows Docker networking issues by running inside Docker network
+
+FROM python:3.11-slim
+
+# Install system dependencies for Playwright
+RUN apt-get update && apt-get install -y \
+    wget \
+    gnupg \
+    ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
+# Set working directory
+WORKDIR /app
+
+# Copy Poetry-resolved requirements (clean dependency resolution via Poetry)
+COPY requirements.poetry.txt .
+
+# Install Python dependencies from Poetry export (pre-resolved, fast install)
+# Upgrade pip first
+RUN pip install --upgrade pip && \
+    pip install --no-cache-dir -r requirements.poetry.txt
+
+# Install Playwright browsers (--with-deps includes system dependencies)
+RUN playwright install --with-deps chromium
+
+# Copy application code
+COPY . .
+
+# Environment variables (will be overridden by docker-compose)
+ENV PYTHONUNBUFFERED=1
+ENV POSTGRES_HOST=postgres
+ENV POSTGRES_PORT=5432
+ENV REDIS_HOST=redis
+ENV REDIS_PORT=6379
+ENV ENABLE_MEMORY=true
+
+# Sanity check: Verify installations
+RUN python -c "import anthropic, playwright, asyncpg, redis; print('✅ All dependencies loaded successfully')"
+
+# Default command (can be overridden)
+CMD ["python", "-m", "backend.cli.main", "test", "--req", "wikipedia_search"]

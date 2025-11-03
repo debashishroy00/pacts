@@ -1,0 +1,175 @@
+======================================================================
+PACTS v3.0 - 5-LOOP CACHE VALIDATION (Day 9)
+======================================================================
+
+Target: >=80% cache hit rate by loop 2
+Expected: L1~0%, L2>=80%, L3-L5>=90%
+
+Clearing Redis to start fresh...
+
+Flushing Redis...
+[OK] Redis cleared
+
+======================================================================
+LOOP 1/5 - Running wikipedia_search test
+======================================================================
+
+Executing: docker-compose run --rm pacts-runner python -m backend.cli.main test --req wikipedia_search
+
+
+Running loop 1...
+[POMBuilder] Navigating to https://en.wikipedia.org
+[POMBuilder] Discovering selector for step 0: Search Wikipedia
+[CACHE] 🎯 HIT (postgres): Search Wikipedia → #searchInput
+[POMBuilder] Discovery result: {'selector': '#searchInput', 'score': 0.88, 'meta': {'strategy': 'placeholder', 'source': 'postgres', 'cached': True}}
+[POMBuilder] Discovering selector for step 1: Search Wikipedia
+[POMBuilder] Reusing selector from previous step (same element): #searchInput
+[POMBuilder] Discovery result: {'selector': '#searchInput', 'score': 0.88, 'meta': {'strategy': 'placeholder', 'source': 'postgres', 'cached': True, 'reused_from_step': 0}}
+[92m✓ Verdict: PASS[0m
+  Steps Executed: 2
+
+Loop 1 Complete - Fetching cache stats...
+
+
+Fetching stats...
+Loop 1 Stats:
+  Redis Hits: 0
+  Postgres Hits: 0
+  Misses: 0
+  Hit Rate: 0.0%
+  Drift Events: 0
+
+======================================================================
+LOOP 2/5 - Running wikipedia_search test
+======================================================================
+
+Executing: docker-compose run --rm pacts-runner python -m backend.cli.main test --req wikipedia_search
+
+
+Running loop 2...
+[POMBuilder] Navigating to https://en.wikipedia.org
+[POMBuilder] Discovering selector for step 0: Search Wikipedia
+[CACHE] 🎯 HIT (redis): Search Wikipedia → #searchInput
+[POMBuilder] Discovery result: {'selector': '#searchInput', 'score': 0.88, 'meta': {'strategy': 'placeholder', 'source': 'redis', 'cached': True}}
+[POMBuilder] Discovering selector for step 1: Search Wikipedia
+[POMBuilder] Reusing selector from previous step (same element): #searchInput
+[POMBuilder] Discovery result: {'selector': '#searchInput', 'score': 0.88, 'meta': {'strategy': 'placeholder', 'source': 'redis', 'cached': True, 'reused_from_step': 0}}
+[92m✓ Verdict: PASS[0m
+  Steps Executed: 2
+
+Loop 2 Complete - Fetching cache stats...
+
+
+Fetching stats...
+Loop 2 Stats:
+  Redis Hits: 0
+  Postgres Hits: 0
+  Misses: 0
+  Hit Rate: 0.0%
+  Drift Events: 0
+  [WARN]  WARNING: Hit rate 0.0% < 80% target
+
+======================================================================
+LOOP 3/5 - Running wikipedia_search test
+======================================================================
+
+Executing: docker-compose run --rm pacts-runner python -m backend.cli.main test --req wikipedia_search
+
+
+Running loop 3...
+[POMBuilder] Navigating to https://en.wikipedia.org
+[POMBuilder] Discovering selector for step 0: Search Wikipedia
+[CACHE] 🎯 HIT (redis): Search Wikipedia → #searchInput
+[POMBuilder] Discovery result: {'selector': '#searchInput', 'score': 0.88, 'meta': {'strategy': 'placeholder', 'source': 'redis', 'cached': True}}
+[POMBuilder] Discovering selector for step 1: Search Wikipedia
+[POMBuilder] Reusing selector from previous step (same element): #searchInput
+[POMBuilder] Discovery result: {'selector': '#searchInput', 'score': 0.88, 'meta': {'strategy': 'placeholder', 'source': 'redis', 'cached': True, 'reused_from_step': 0}}
+[92m✓ Verdict: PASS[0m
+  Steps Executed: 2
+
+Loop 3 Complete - Fetching cache stats...
+
+
+Fetching stats...
+Loop 3 Stats:
+  Redis Hits: 0
+  Postgres Hits: 0
+  Misses: 0
+  Hit Rate: 0.0%
+  Drift Events: 0
+
+======================================================================
+LOOP 4/5 - Running wikipedia_search test
+======================================================================
+
+Executing: docker-compose run --rm pacts-runner python -m backend.cli.main test --req wikipedia_search
+
+
+Running loop 4...
+[POMBuilder] Navigating to https://en.wikipedia.org
+[POMBuilder] Discovering selector for step 0: Search Wikipedia
+[CACHE] 🎯 HIT (redis): Search Wikipedia → #searchInput
+[POMBuilder] Discovery result: {'selector': '#searchInput', 'score': 0.88, 'meta': {'strategy': 'placeholder', 'source': 'redis', 'cached': True}}
+[POMBuilder] Discovering selector for step 1: Search Wikipedia
+[POMBuilder] Reusing selector from previous step (same element): #searchInput
+[POMBuilder] Discovery result: {'selector': '#searchInput', 'score': 0.88, 'meta': {'strategy': 'placeholder', 'source': 'redis', 'cached': True, 'reused_from_step': 0}}
+[92m✓ Verdict: PASS[0m
+  Steps Executed: 2
+
+Loop 4 Complete - Fetching cache stats...
+
+
+Fetching stats...
+Loop 4 Stats:
+  Redis Hits: 0
+  Postgres Hits: 0
+  Misses: 0
+  Hit Rate: 0.0%
+  Drift Events: 0
+
+======================================================================
+LOOP 5/5 - Running wikipedia_search test
+======================================================================
+
+Executing: docker-compose run --rm pacts-runner python -m backend.cli.main test --req wikipedia_search
+
+
+Running loop 5...
+[POMBuilder] Navigating to https://en.wikipedia.org
+[POMBuilder] Discovering selector for step 0: Search Wikipedia
+[CACHE] 🎯 HIT (redis): Search Wikipedia → #searchInput
+[POMBuilder] Discovery result: {'selector': '#searchInput', 'score': 0.88, 'meta': {'strategy': 'placeholder', 'source': 'redis', 'cached': True}}
+[POMBuilder] Discovering selector for step 1: Search Wikipedia
+[POMBuilder] Reusing selector from previous step (same element): #searchInput
+[POMBuilder] Discovery result: {'selector': '#searchInput', 'score': 0.88, 'meta': {'strategy': 'placeholder', 'source': 'redis', 'cached': True, 'reused_from_step': 0}}
+[92m✓ Verdict: PASS[0m
+  Steps Executed: 2
+
+Loop 5 Complete - Fetching cache stats...
+
+
+Fetching stats...
+Loop 5 Stats:
+  Redis Hits: 0
+  Postgres Hits: 0
+  Misses: 0
+  Hit Rate: 0.0%
+  Drift Events: 0
+
+======================================================================
+5-LOOP VALIDATION COMPLETE
+======================================================================
+
+Summary Table:
+Loop   Redis    Postgres   Misses   Hit Rate   Drift    Status         
+----------------------------------------------------------------------
+1      0        0          0        0.0       % 0                       
+2      0        0          0        0.0       % 0        [FAIL] MISS TARGET
+3      0        0          0        0.0       % 0        [OK] STABLE    
+4      0        0          0        0.0       % 0        [OK] STABLE    
+5      0        0          0        0.0       % 0        [OK] STABLE    
+
+[FAIL] FAILURE: Loop 2 hit rate 0.0% < 80% target
+[OK] SUCCESS: Zero drift events on loops 3-5
+
+Next: Review metrics and proceed to Day 10 (measure speedup & stability)

@@ -1,57 +1,53 @@
-# PACTS v3.0 — baseline deps (Python 3.11+)
+# PACTS v3.0 Runtime Dependencies
+# Install order: Core-first to avoid circular dependency issues
+# Use with constraints.txt: pip install -r requirements.txt --constraint constraints.txt
 
-# Browser / MCP
+# ==============================================================================
+# STAGE 1: LangChain Core (install FIRST - provides stable base)
+# ==============================================================================
+langchain-core==0.3.*           # Wildcard lets pip choose compatible minor
+
+# ==============================================================================
+# STAGE 2: LangChain Community (install SECOND - aligns to core)
+# ==============================================================================
+langchain-community==0.3.*      # Aligns to core version
+
+# ==============================================================================
+# STAGE 3: LangGraph (independent - doesn't require langchain meta package)
+# ==============================================================================
+langgraph>=1.0.0,<2.0.0
+
+# ==============================================================================
+# STAGE 4: LangSmith (telemetry - pre-0.2 for compatibility)
+# ==============================================================================
+langsmith==0.1.*
+
+# ==============================================================================
+# Browser Automation
+# ==============================================================================
 playwright>=1.45,<2.0
-pytest-playwright>=0.5.0
 
-# Orchestration & LLM infra
-langgraph>=1.0.0,<2.0.0         # 1.0 GA (Oct 2025) — durable state, checkpoints, human gates
-langchain>=0.3.0,<0.4.0         # coords with -core/-community 0.3.x
-langchain-core>=0.3.0,<0.4.0
-langchain-community>=0.3.0,<0.4.0
-langsmith>=0.2.0,<0.3.0         # newer client with run_tree + tracing improvements
-
-# Data / storage
-psycopg[binary]>=3.2,<4.0
-asyncpg>=0.29.0,<0.30.0         # Async Postgres driver (faster than psycopg for asyncio)
-sqlalchemy>=2.0.25,<3.0
-alembic>=1.13,<2.0
-redis>=5.0,<6.0
+# ==============================================================================
+# Database & Storage
+# ==============================================================================
+asyncpg>=0.29.0,<0.30.0         # Async Postgres (faster than psycopg for asyncio)
+psycopg[binary]>=3.2,<4.0       # Sync Postgres with binary drivers
 redis[hiredis]>=5.0,<6.0        # Redis with C parser for performance
 
-# Config / utils
+# ==============================================================================
+# Anthropic SDK (direct - no LangChain dependency)
+# ==============================================================================
+anthropic>=0.40,<1.0
+
+# ==============================================================================
+# Configuration & Utilities
+# ==============================================================================
 python-dotenv>=1.0.0
-pydantic>=2.7,<3.0
 pydantic-settings>=2.2,<3.0
-tenacity>=8.2,<9.0
-rich>=13.7,<14.0
-pyyaml>=6.0.1,<7.0
-orjson>=3.10,<4.0
-httpx>=0.27,<0.28
-aiohttp>=3.10,<4.0
-requests>=2.32,<3.0
 
-# Data processing
-openpyxl>=3.1.2,<4.0
-pandas>=2.2,<3.0
-numpy>=2.0,<3.0
-
-# API (optional service layer)
-fastapi>=0.115,<0.116
-uvicorn[standard]>=0.30,<0.31
-
-# Testing & QA
-pytest>=8.2,<9.0
-pytest-asyncio>=0.24,<0.25
-pytest-cov>=5.0,<6.0
-pytest-mock>=3.14,<4.0
-
-# Code quality
-black>=24.3,<25.0
-flake8>=7.1,<8.0
-mypy>=1.10,<2.0
-isort>=5.13,<6.0
-pylint>=3.2,<4.0
-
-# Monitoring
-prometheus-client>=0.20,<1.0
+# ==============================================================================
+# Optional: LangChain Meta Package (only if needed - install LAST)
+# ==============================================================================
+# Uncomment ONLY if you need features from the meta package
+# Most projects only need langchain-core + langchain-community
+# langchain==0.3.*

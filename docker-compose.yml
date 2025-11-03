@@ -2,23 +2,30 @@ version: '3.8'
 
 services:
   postgres:
-    image: postgres:15-alpine
+    image: postgres:15
     container_name: pacts-postgres
-    environment:
-      POSTGRES_DB: pacts
-      POSTGRES_USER: pacts_user
-      POSTGRES_PASSWORD: pacts_dev_password
-      PGDATA: /var/lib/postgresql/data/pgdata
     ports:
       - "5432:5432"
+    environment:
+      POSTGRES_DB: pacts
+      POSTGRES_USER: pacts
+      POSTGRES_PASSWORD: pacts
+      PGDATA: /var/lib/postgresql/data
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      - ./backend/storage/postgres_schema.sql:/docker-entrypoint-initdb.d/schema.sql
+      - ./backend/storage/pg_hba.conf:/etc/postgresql/pg_hba.conf:ro
+      - ./backend/storage/postgresql.conf:/etc/postgresql/postgresql.conf:ro
+      - ./backend/storage/init.sql:/docker-entrypoint-initdb.d/00-init.sql:ro
+      - ./backend/storage/postgres_schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
+    command: >
+      postgres
+      -c config_file=/etc/postgresql/postgresql.conf
+      -c hba_file=/etc/postgresql/pg_hba.conf
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U pacts_user -d pacts"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
+      test: ["CMD-SHELL", "pg_isready -U pacts -d pacts"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
     networks:
       - pacts-network
 
@@ -71,6 +78,49 @@ services:
       - pacts-network
     profiles:
       - tools
+
+  # PACTS Runner - Containerized test execution (bypasses Windows networking)
+  pacts-runner:
+    build:
+      context: .
+      dockerfile: Dockerfile.runner
+    container_name: pacts-runner
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      # Database connection (use service name, not localhost)
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_DB: pacts
+      POSTGRES_USER: pacts
+      POSTGRES_PASSWORD: pacts
+
+      # Redis connection
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+
+      # Feature flags
+      ENABLE_MEMORY: "true"
+      CACHE_DEBUG: "true"
+
+      # LLM configuration
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
+      LLM_MODEL: claude-3-5-haiku-20241022
+      LLM_TEMPERATURE: "0.0"
+      LLM_MAX_TOKENS: "4096"
+    volumes:
+      - .:/app  # Mount code for live development
+      - ./artifacts:/app/artifacts  # Persist artifacts
+      - ./generated_tests:/app/generated_tests  # Persist generated tests
+    networks:
+      - pacts-network
+    profiles:
+      - runner  # Use: docker-compose --profile runner up
+    # Override command for specific tests
+    # command: python -m backend.cli.main test --req salesforce_opportunity_postlogin
 
 volumes:
   postgres_data:

@@ -1,0 +1,38 @@
+[tool.poetry]
+name = "pacts"
+version = "3.0.0"
+description = "Production-Ready Autonomous Context Testing System"
+authors = ["PACTS Team"]
+readme = "README.md"
+packages = [{include = "backend"}]
+
+[tool.poetry.dependencies]
+python = "^3.11"
+
+# Core runtime (no LangChain yet - add these first)
+anthropic = "^0.39"
+httpx = ">=0.23.0,<0.28.0"  # Pinned for anthropic 0.39.0 compatibility
+playwright = "^1.47"
+asyncpg = "^0.29"
+psycopg = {extras = ["binary"], version = "^3.2.12"}
+redis = {extras = ["hiredis"], version = "^7.0.1"}
+pydantic = "^2.8"
+pydantic-settings = "^2.4"
+python-dotenv = "^1.0"
+click = "^8.0"
+
+# LangGraph + LangChain family — keep minors aligned
+# Add these LAST to avoid accidental pulls
+langgraph = ">=0.2,<0.3"
+langchain = ">=0.3,<0.4"
+langchain-core = ">=0.3,<0.4"
+langchain-community = ">=0.3,<0.4"
+mcp = ">=1.0,<2.0"
+jinja2 = ">=3.0,<4.0"
+
+[tool.poetry.group.dev.dependencies]
+pytest = "^8.3"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

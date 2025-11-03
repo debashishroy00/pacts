@@ -252,10 +252,10 @@ ON CONFLICT DO NOTHING;
 -- Grants: Permissions for application user
 -- =============================================================================
 
--- Grant all privileges to pacts_user
-GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO pacts_user;
-GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO pacts_user;
-GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA public TO pacts_user;
+-- Grant all privileges to pacts user
+GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO pacts;
+GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO pacts;
+GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA public TO pacts;
 
 -- =============================================================================
 -- Schema Version Tracking
