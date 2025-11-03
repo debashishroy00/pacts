@@ -282,6 +282,121 @@ def build_graph():
     return g.compile()
 
 async def ainvoke_graph(state: RunState) -> RunState:
+    """
+    Execute graph with RunStorage hooks (Day 12 integration).
+
+    Captures:
+    - Run creation at start
+    - Step execution details
+    - Artifacts (screenshots, test files)
+    - Final verdict and metrics
+    """
+    from ..storage.init import get_storage
+    import logging
+    import os
+
+    logger = logging.getLogger(__name__)
+
+    # Get storage for RunStorage
+    storage = await get_storage()
+    run_storage = storage.runs if storage else None
+
+    # Extract test metadata
+    req_id = state.req_id
+    test_name = req_id
+    url = state.context.get("url", "")
+    total_steps = len(state.plan) if state.plan else 0
+
+    # Create run record at start (Day 12 Part A)
+    if run_storage:
+        try:
+            await run_storage.create_run(
+                req_id=req_id,
+                test_name=test_name,
+                url=url,
+                total_steps=total_steps
+            )
+            logger.info(f"[RUN] Created run: {req_id}")
+        except Exception as e:
+            logger.warning(f"[RUN] Failed to create run: {e}")
+
+    # Build and execute graph
     app = build_graph()
+
     # Increase recursion limit for multi-page flows (default: 25)
-    return await app.ainvoke(state, config={"recursion_limit": 100})
+    result = await app.ainvoke(state, config={"recursion_limit": 100})
+
+    # Update run with final verdict (Day 12 Part A)
+    if run_storage:
+        try:
+            # Determine final status
+            verdict = getattr(result, 'verdict', None) or result.get('verdict', 'error') if isinstance(result, dict) else "error"
+            status_map = {
+                "pass": "pass",
+                "partial": "fail",  # Partial is considered fail
+                "fail": "fail"
+            }
+            final_status = status_map.get(verdict, "error")
+
+            # Extract metrics (handle both RunState and dict)
+            completed_steps = getattr(result, 'step_idx', None) or result.get('step_idx', 0) if isinstance(result, dict) else 0
+            heal_rounds = getattr(result, 'heal_round', None) or result.get('heal_round', 0) if isinstance(result, dict) else 0
+            heal_events = getattr(result, 'heal_events', None) or result.get('heal_events', []) if isinstance(result, dict) else []
+            heal_events_count = len(heal_events) if heal_events else 0
+            context = getattr(result, 'context', None) or result.get('context', {}) if isinstance(result, dict) else {}
+            error_msg = context.get("rca", {}).get("message") if verdict == "fail" else None
+
+            await run_storage.update_run(
+                req_id=req_id,
+                status=final_status,
+                completed_steps=completed_steps,
+                heal_rounds=heal_rounds,
+                heal_events=heal_events_count,
+                error_message=error_msg
+            )
+            logger.info(f"[RUN] Updated run: {req_id} → {final_status}")
+
+            # Save artifacts (screenshots, test files)
+            # Screenshots are saved during execution, we'll link them here
+            artifacts_dir = "screenshots"
+            if os.path.exists(artifacts_dir):
+                for filename in os.listdir(artifacts_dir):
+                    if req_id.lower() in filename.lower() or test_name.lower() in filename.lower():
+                        file_path = os.path.join(artifacts_dir, filename)
+                        file_size = os.path.getsize(file_path)
+                        # Extract step index from filename if possible
+                        step_idx = None
+                        if "step" in filename.lower():
+                            try:
+                                import re
+                                match = re.search(r'step(\d+)', filename.lower())
+                                if match:
+                                    step_idx = int(match.group(1))
+                            except:
+                                pass
+
+                        await run_storage.save_artifact(
+                            req_id=req_id,
+                            step_idx=step_idx,
+                            artifact_type="screenshot",
+                            file_path=file_path,
+                            file_size=file_size
+                        )
+
+            # Save generated test file
+            generated_file = context.get("generated_file")
+            if generated_file and os.path.exists(generated_file):
+                file_size = os.path.getsize(generated_file)
+                await run_storage.save_artifact(
+                    req_id=req_id,
+                    step_idx=None,  # Run-level artifact
+                    artifact_type="test_file",
+                    file_path=generated_file,
+                    file_size=file_size
+                )
+                logger.info(f"[RUN] Saved test artifact: {generated_file}")
+
+        except Exception as e:
+            logger.warning(f"[RUN] Failed to update run: {e}")
+
+    return result

@@ -26,9 +26,14 @@ async def run(state: RunState) -> RunState:
 
     Healing Playbook:
         1. REVEAL: Scroll into view, dismiss overlays, ensure focus
-        2. REPROBE: Re-run discovery with alternate strategies
+        2. REPROBE: Re-run discovery with alternate strategies (history-aware)
         3. STABILITY: Wait for animations/network idle, re-check gate
         4. ADAPTIVE RETRY: Increment timeouts per heal round
+
+    History Integration (Day 11):
+        - Query HealHistory for best strategies before attempting healing
+        - Try learned strategies first, fall back to default list
+        - Record outcome after each heal attempt for learning
 
     Args:
         state: RunState with failure information
@@ -43,6 +48,11 @@ async def run(state: RunState) -> RunState:
     # Get browser singleton (pass config for headed mode, slow_mo, etc.)
     browser_config = state.context.get("browser_config", {})
     browser = await BrowserManager.get(config=browser_config)
+
+    # Get storage for HealHistory (Day 11 integration)
+    from ..storage.init import get_storage
+    storage = await get_storage()
+    heal_history = storage.heal_history if storage else None
 
     # Increment heal round
     state.heal_round += 1
@@ -115,7 +125,7 @@ async def run(state: RunState) -> RunState:
     heal_event["actions"].extend(reveal_actions)
 
     # ==========================================
-    # STEP 2: REPROBE (if original selector failed)
+    # STEP 2: REPROBE (if original selector failed) - HISTORY-AWARE
     # ==========================================
     new_selector = None
     reprobe_strategy = None
@@ -136,8 +146,30 @@ async def run(state: RunState) -> RunState:
         return state
 
     if state.failure in [Failure.timeout, Failure.not_unique]:
-        # Re-discover with alternate strategies
+        # Get best strategies from HealHistory (Day 11 integration)
+        best_strategies = []
+        if heal_history:
+            url = state.context.get("url", "")
+            element = intent.get("element", "")
+            try:
+                best_strategies = await heal_history.get_best_strategy(
+                    element=element,
+                    url=url,
+                    top_n=3
+                )
+                if best_strategies:
+                    strategy_names = [s["strategy"] for s in best_strategies]
+                    logger.info(f"[HEAL] 🎯 Learned strategies for {element}: {strategy_names}")
+                    heal_event["learned_strategies"] = strategy_names
+            except Exception as e:
+                logger.warning(f"[HEAL] HealHistory query failed, using defaults: {e}")
+
+        # Re-discover with alternate strategies (prioritize learned strategies)
         hints = state.context.get("hints", {})
+        if best_strategies:
+            # Add learned strategies to hints (reprobe will try these first)
+            hints["preferred_strategies"] = [s["strategy"] for s in best_strategies]
+
         discovered = await reprobe_with_alternates(
             browser,
             intent,
@@ -200,6 +232,25 @@ async def run(state: RunState) -> RunState:
     if not hasattr(state, "heal_events") or state.heal_events is None:
         state.heal_events = []
     state.heal_events.append(heal_event)
+
+    # ==========================================
+    # RECORD OUTCOME TO HEALHISTORY (Day 11)
+    # ==========================================
+    if heal_history and reprobe_strategy:
+        # Record healing outcome for learning
+        url = state.context.get("url", "")
+        element = intent.get("element", "")
+        try:
+            await heal_history.record_outcome(
+                element=element,
+                url=url,
+                strategy=reprobe_strategy,
+                success=gate_ok,
+                heal_time_ms=heal_event["duration_ms"]
+            )
+            logger.info(f"[HEAL] 📊 Recorded outcome: {reprobe_strategy} → {'✅' if gate_ok else '❌'}")
+        except Exception as e:
+            logger.warning(f"[HEAL] Failed to record outcome: {e}")
 
     # Reset failure if healing succeeded
     if gate_ok:
