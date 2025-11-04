@@ -356,3 +356,65 @@ async def ensure_lightning_ready(page) -> None:
     # Empirical delay - fixes "New" button timeout (Day 9 test validation)
     await page.wait_for_timeout(1500)
     print("[SALESFORCE] ✅ Lightning ready")
+
+
+async def resolve_combobox_by_label(page, label_text: str) -> Optional[str]:
+    """
+    Resolve Lightning combobox selector by aria-label when dynamic IDs fail.
+
+    Week 3 patch: Lightning comboboxes use #combobox-button-NNN IDs that change
+    across sessions. This fallback finds them via aria-label, role, or proximity.
+
+    Args:
+        page: Playwright page instance
+        label_text: The label text to search for (e.g., "Stage", "Lead Source")
+
+    Returns:
+        Selector string if found, None otherwise
+
+    Strategy score: 0.90 (tagged as sf_aria_combobox)
+    """
+    print(f"[SALESFORCE] 🔍 Combobox fallback for: '{label_text}'")
+
+    # Strategy 1: aria-label match on button with listbox
+    sel = f'button[role="button"][aria-haspopup="listbox"][aria-label*="{label_text}" i]'
+    try:
+        if await page.locator(sel).first.is_visible(timeout=2000):
+            print(f"[SALESFORCE] ✅ Found via aria-label: {sel}")
+            return sel
+    except Exception:
+        pass
+
+    # Strategy 2: role=combobox with aria-label
+    sel = f'[role="combobox"][aria-label*="{label_text}" i]'
+    try:
+        if await page.locator(sel).first.is_visible(timeout=2000):
+            print(f"[SALESFORCE] ✅ Found via role=combobox: {sel}")
+            return sel
+    except Exception:
+        pass
+
+    # Strategy 3: Label proximity → nearest combobox/button
+    try:
+        label = page.get_by_label(label_text, exact=False)
+        if await label.count() > 0:
+            # Try parent chain for nearby combobox
+            near_combo = label.locator('..').locator('[role="combobox"],button[aria-haspopup="listbox"]')
+            if await near_combo.first.is_visible(timeout=2000):
+                found_sel = await near_combo.first.evaluate("el => el.getAttribute('id') ? `#${el.id}` : el.tagName.toLowerCase()")
+                print(f"[SALESFORCE] ✅ Found via label proximity: {found_sel}")
+                return found_sel
+    except Exception:
+        pass
+
+    # Strategy 4: Last resort - title attribute
+    sel = f'button[title*="{label_text}" i][aria-haspopup="listbox"]'
+    try:
+        if await page.locator(sel).first.is_visible(timeout=2000):
+            print(f"[SALESFORCE] ✅ Found via title: {sel}")
+            return sel
+    except Exception:
+        pass
+
+    print(f"[SALESFORCE] ❌ Combobox fallback exhausted for: '{label_text}'")
+    return None

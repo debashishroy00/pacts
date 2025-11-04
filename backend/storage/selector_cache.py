@@ -16,10 +16,43 @@ import hashlib
 from urllib.parse import urlparse
 from typing import Optional, Dict, Any
 from datetime import datetime, timedelta
+import json
 
 from .base import BaseStorage
 
 logger = logging.getLogger(__name__)
+
+
+def _session_key(ctx: Optional[Dict[str, Any]] = None) -> str:
+    """
+    Generate session-scoped cache key component.
+
+    Week 3 Patch: Includes domain+path+user+session_epoch to prevent
+    cross-session ID drift reuse (e.g., #input-339 from old session).
+
+    Fallback to date hour bucket to avoid unbounded reuse.
+
+    Args:
+        ctx: Context dict with url, auth_user, session_epoch, etc.
+
+    Returns:
+        12-character hash for session scope
+    """
+    if not ctx:
+        ctx = {}
+
+    url = (ctx.get("url") or "").split("?")[0]
+    domain = url.split("/")[2] if "://" in url else url
+    path = "/" + "/".join(url.split("/")[3:]) if "://" in url else ""
+    user = ctx.get("auth_user") or "unknown"
+    sess_epoch = ctx.get("session_epoch") or ctx.get("session_start_epoch") or 0
+
+    # If no session epoch, use hour bucket as fallback
+    if not sess_epoch:
+        sess_epoch = int(datetime.now().timestamp() // 3600)  # Hour bucket
+
+    raw = json.dumps([domain, path, user, int(sess_epoch)], separators=(",", ":"))
+    return hashlib.sha1(raw.encode()).hexdigest()[:12]
 
 
 class SelectorCache(BaseStorage):
@@ -47,7 +80,7 @@ class SelectorCache(BaseStorage):
     # ==========================================================================
 
     async def get_selector(
-        self, url: str, element: str, dom_hash: Optional[str] = None
+        self, url: str, element: str, dom_hash: Optional[str] = None, context: Optional[Dict[str, Any]] = None
     ) -> Optional[Dict[str, Any]]:
         """
         Get cached selector (dual-layer lookup).
@@ -73,7 +106,7 @@ class SelectorCache(BaseStorage):
             or None if cache miss
         """
         # Try Redis first (fast path)
-        redis_result = await self._get_from_redis(url, element)
+        redis_result = await self._get_from_redis(url, element, context)
         if redis_result:
             # Validate with drift detection
             if dom_hash and await self._check_drift(url, element, dom_hash):
@@ -105,6 +138,7 @@ class SelectorCache(BaseStorage):
                 postgres_result["selector"],
                 postgres_result["confidence"],
                 postgres_result["strategy"],
+                context,
             )
 
             postgres_result["source"] = "postgres"
@@ -123,6 +157,7 @@ class SelectorCache(BaseStorage):
         confidence: float,
         strategy: str,
         dom_hash: Optional[str] = None,
+        context: Optional[Dict[str, Any]] = None,
     ):
         """
         Save selector to both caches.
@@ -165,7 +200,7 @@ class SelectorCache(BaseStorage):
         )
 
         # Save to Redis (warm cache)
-        await self._save_to_redis(url, element, selector, confidence, strategy)
+        await self._save_to_redis(url, element, selector, confidence, strategy, context)
 
         # Store DOM hash for drift detection
         if dom_hash:
@@ -273,10 +308,10 @@ class SelectorCache(BaseStorage):
     # ==========================================================================
 
     async def _get_from_redis(
-        self, url: str, element: str
+        self, url: str, element: str, context: Optional[Dict[str, Any]] = None
     ) -> Optional[Dict[str, Any]]:
         """Get selector from Redis."""
-        key = self._redis_key(url, element)
+        key = self._redis_key(url, element, context)
         data = await self.cache.get_json(key)
 
         if data:
@@ -287,10 +322,10 @@ class SelectorCache(BaseStorage):
         return None
 
     async def _save_to_redis(
-        self, url: str, element: str, selector: str, confidence: float, strategy: str
+        self, url: str, element: str, selector: str, confidence: float, strategy: str, context: Optional[Dict[str, Any]] = None
     ):
         """Save selector to Redis with TTL."""
-        key = self._redis_key(url, element)
+        key = self._redis_key(url, element, context)
         data = {
             "selector": selector,
             "confidence": confidence,
@@ -299,10 +334,15 @@ class SelectorCache(BaseStorage):
         }
         await self.cache.set_json(key, data, ttl=self._redis_ttl)
 
-    def _redis_key(self, url: str, element: str) -> str:
-        """Generate Redis key."""
+    def _redis_key(self, url: str, element: str, context: Optional[Dict[str, Any]] = None) -> str:
+        """
+        Generate Redis key with session scope.
+
+        Week 3 Patch: Includes session scope to prevent cross-session ID reuse.
+        """
         url_pattern = self._normalize_url(url)
-        return f"pom:{url_pattern}:{element}"
+        session_scope = _session_key(context)
+        return f"pom:{url_pattern}:{element}:{session_scope}"
 
     # ==========================================================================
     # Private Methods - Postgres Layer
@@ -404,20 +444,26 @@ class SelectorCache(BaseStorage):
         # Day 9 fix: Adaptive threshold for Salesforce Lightning
         # Lightning SPAs have 90%+ DOM volatility, use higher threshold
         threshold = self._drift_threshold
+        is_sf = False
         try:
             from ..runtime.salesforce_helpers import is_lightning
             host = urlparse(url).hostname or ""
-            if is_lightning(host):
+            is_sf = is_lightning(host)
+            if is_sf:
                 # Salesforce-specific threshold from env (default 75%)
                 sf_threshold = float(os.getenv("PACTS_SF_DRIFT_THRESHOLD", "0.75")) * 100
                 threshold = max(threshold, sf_threshold)
         except Exception:
             pass  # Soft-fail - use default threshold
 
+        # Week 3 Patch: Log drift decision for every cache read
+        decision = "invalidate" if drift_pct > threshold else "reuse"
+        cache_key = f"{element}|{self._normalize_url(url)}"
+        logger.info(
+            f"[CACHE][DRIFT] key={cache_key} drift={drift_pct:.3f}% threshold={threshold:.2f}% decision={decision} is_sf={is_sf}"
+        )
+
         if drift_pct > threshold:
-            logger.warning(
-                f"[CACHE] Drift {drift_pct:.1f}% detected for {element} (threshold: {threshold}%)"
-            )
             return True
 
         return False

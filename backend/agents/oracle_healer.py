@@ -188,6 +188,11 @@ async def run(state: RunState) -> RunState:
             # Update plan with new selector
             state.plan[state.step_idx]["selector"] = new_selector
             selector = new_selector
+        else:
+            # Week 3 Patch: Discovery returned None - prevent infinite loop
+            print(f"[HEAL] ⚠️ Discovery returned None for '{intent.get('element')}' (round {state.heal_round})")
+            heal_event["actions"].append("discovery_none")
+            selector = None  # Ensure selector is cleared to fail fast
 
     # ==========================================
     # STEP 3: STABILITY & GATE VALIDATION

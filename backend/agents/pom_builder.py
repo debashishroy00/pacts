@@ -4,7 +4,7 @@ from ..graph.state import RunState, Failure
 from ..runtime.browser_manager import BrowserManager
 from ..runtime.discovery import discover_selector
 from ..runtime.discovery_cached import discover_selector_cached
-from ..runtime.salesforce_helpers import is_lightning, ensure_lightning_ready
+from ..runtime.salesforce_helpers import is_lightning, ensure_lightning_ready, resolve_combobox_by_label
 from ..telemetry.tracing import traced
 from urllib.parse import urlparse
 import os
@@ -95,6 +95,26 @@ async def run(state: RunState) -> RunState:
             else:
                 cand = await discover_selector(browser, intent)
         print(f"[POMBuilder] Discovery result: {cand}")
+
+        # Week 3 Patch: Lightning combobox fallback
+        if not cand and is_lightning(browser.page.url):
+            action = current_step.get("action", "")
+            # Detect combobox/dropdown targets (click action often indicates selection)
+            if action in ["click", "select"]:
+                element_text = current_element or ""
+                # Try combobox-specific resolver
+                try:
+                    combobox_sel = await resolve_combobox_by_label(browser.page, element_text)
+                    if combobox_sel:
+                        cand = {
+                            "selector": combobox_sel,
+                            "score": 0.90,
+                            "meta": {"strategy": "sf_aria_combobox", "source": "fallback"}
+                        }
+                        print(f"[POMBuilder] Combobox fallback succeeded: {combobox_sel}")
+                except Exception as e:
+                    print(f"[POMBuilder] Combobox fallback error: {e}")
+
         if cand:
             # Update ONLY the current step in the plan
             updated_step = {
