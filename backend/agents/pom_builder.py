@@ -4,7 +4,9 @@ from ..graph.state import RunState, Failure
 from ..runtime.browser_manager import BrowserManager
 from ..runtime.discovery import discover_selector
 from ..runtime.discovery_cached import discover_selector_cached
+from ..runtime.salesforce_helpers import is_lightning, ensure_lightning_ready
 from ..telemetry.tracing import traced
+from urllib.parse import urlparse
 import os
 
 # Use cached discovery if memory is enabled
@@ -36,6 +38,14 @@ async def run(state: RunState) -> RunState:
             if not current_url or "about:blank" in current_url:
                 print(f"[POMBuilder] Navigating to {url}")
                 await browser.goto(url)
+
+                # Day 9 fix: Wait for Lightning SPA to hydrate before discovery
+                try:
+                    host = urlparse(browser.page.url).hostname or ""
+                    if is_lightning(host):
+                        await ensure_lightning_ready(browser.page)
+                except Exception:
+                    pass  # Soft-fail - don't block non-Lightning sites
 
         current_step = state.plan[state.step_idx]
         current_element = current_step.get('element')

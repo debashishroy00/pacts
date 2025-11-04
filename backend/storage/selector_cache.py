@@ -13,6 +13,7 @@ Drift Detection:
 import os
 import logging
 import hashlib
+from urllib.parse import urlparse
 from typing import Optional, Dict, Any
 from datetime import datetime, timedelta
 
@@ -400,9 +401,22 @@ class SelectorCache(BaseStorage):
         # Calculate Hamming distance as percentage
         drift_pct = self._calculate_hash_distance(cached_hash, current_hash)
 
-        if drift_pct > self._drift_threshold:
+        # Day 9 fix: Adaptive threshold for Salesforce Lightning
+        # Lightning SPAs have 90%+ DOM volatility, use higher threshold
+        threshold = self._drift_threshold
+        try:
+            from ..runtime.salesforce_helpers import is_lightning
+            host = urlparse(url).hostname or ""
+            if is_lightning(host):
+                # Salesforce-specific threshold from env (default 75%)
+                sf_threshold = float(os.getenv("PACTS_SF_DRIFT_THRESHOLD", "0.75")) * 100
+                threshold = max(threshold, sf_threshold)
+        except Exception:
+            pass  # Soft-fail - use default threshold
+
+        if drift_pct > threshold:
             logger.warning(
-                f"[CACHE] Drift {drift_pct:.1f}% detected for {element} (threshold: {self._drift_threshold}%)"
+                f"[CACHE] Drift {drift_pct:.1f}% detected for {element} (threshold: {threshold}%)"
             )
             return True
 

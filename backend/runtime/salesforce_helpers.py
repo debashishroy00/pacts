@@ -309,3 +309,50 @@ def is_launcher_search(selector: str) -> bool:
 def extract_launcher_target(selector: str) -> str:
     """Extract target name from LAUNCHER_SEARCH:target selector."""
     return selector.split(":", 1)[1] if is_launcher_search(selector) else ""
+
+
+# Lightning readiness detection (Day 9 - fixes timing issues)
+LIGHTNING_HOST_RE = re.compile(r"(?:\.lightning\.force\.com|\.my\.salesforce\.com)$", re.I)
+
+
+def is_lightning(url_or_host: str) -> bool:
+    """
+    Check if URL or hostname is a Salesforce Lightning domain.
+
+    Args:
+        url_or_host: Full URL or just hostname
+
+    Returns:
+        bool: True if Lightning domain detected
+    """
+    host = url_or_host or ""
+    return bool(LIGHTNING_HOST_RE.search(host))
+
+
+async def ensure_lightning_ready(page) -> None:
+    """
+    Wait for Lightning SPA to fully hydrate before discovery.
+
+    Addresses Day 9 finding: Lightning requires 1-2 seconds to settle
+    after navigation, causing timeouts when cache invalidation triggers
+    re-discovery on partially-loaded pages.
+
+    Strategy:
+    1. Wait for DOM content loaded (basic structure)
+    2. Wait for network idle (soft-fail if polling continues)
+    3. Add empirical 1500ms settling time
+
+    Args:
+        page: Playwright page instance
+    """
+    print("[SALESFORCE] ⏳ Waiting for Lightning SPA to hydrate...")
+    await page.wait_for_load_state("domcontentloaded")
+    try:
+        # Lightning often keeps polling; 5s timeout prevents infinite wait
+        await page.wait_for_load_state("networkidle", timeout=5000)
+    except Exception:
+        pass  # Soft-fail on polling/background requests
+
+    # Empirical delay - fixes "New" button timeout (Day 9 test validation)
+    await page.wait_for_timeout(1500)
+    print("[SALESFORCE] ✅ Lightning ready")

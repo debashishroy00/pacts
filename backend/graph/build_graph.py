@@ -2,6 +2,9 @@ from __future__ import annotations
 from langgraph.graph import StateGraph, END
 from .state import RunState, Failure
 from ..agents import planner
+import time
+import uuid
+import os
 
 
 def executor_router(state: RunState) -> str:
@@ -34,9 +37,10 @@ def executor_router(state: RunState) -> str:
         print(f"[ROUTER] -> pom_builder (no selector)")
         return "pom_builder"
 
-    # If there's a failure, attempt healing (max 3 rounds)
+    # If there's a failure, attempt healing (max rounds from env)
     if state.failure != Failure.none:
-        if state.heal_round < 3:
+        max_heal_rounds = int(os.getenv("MAX_HEAL_ROUNDS", "3"))
+        if state.heal_round < max_heal_rounds:
             print(f"[ROUTER] -> oracle_healer (heal_round={state.heal_round})")
             return "oracle_healer"
         else:
@@ -302,10 +306,16 @@ async def ainvoke_graph(state: RunState) -> RunState:
     run_storage = storage.runs if storage else None
 
     # Extract test metadata
-    req_id = state.req_id
-    test_name = req_id
+    base_req_id = state.req_id
+    test_name = base_req_id
     url = state.context.get("url", "")
     total_steps = len(state.plan) if state.plan else 0
+
+    # Day 9 fix: Make req_id unique to avoid PK collisions on re-runs
+    # Use last 6 chars of timestamp + 4 chars of uuid to stay under 50 char limit
+    timestamp_suffix = str(int(time.time()))[-6:]  # Last 6 digits of epoch
+    uuid_suffix = uuid.uuid4().hex[:4]
+    req_id = f"{base_req_id}-{timestamp_suffix}{uuid_suffix}"
 
     # Create run record at start (Day 12 Part A)
     if run_storage:

@@ -1,7 +1,25 @@
 {
   "permissions": {
     "allow": [
-      "Bash(git checkout upload.bat)"
+      "Bash(python test_asyncpg.py)",
+      "Bash(python -m venv .venv)",
+      "Bash(.venv/Scripts/pip install playwright)",
+      "Bash(.venv/Scripts/python -m playwright install chromium)",
+      "Bash(export SF_LOGIN_URL=https://orgfarm-9a1de3d5e8-dev-ed.develop.my.salesforce.com)",
+      "Bash(.venv/Scripts/python scripts/session_capture_sf.py)",
+      "Bash(cat hitl/salesforce_auth.json)",
+      "Bash(tee /tmp/sf_test1.log)",
+      "Read(//c/tmp/**)",
+      "Bash(tee /tmp/sf_test1_retry.log)",
+      "Bash(tee /tmp/sf_test2.log)",
+      "Bash(tee /tmp/sf_test3.log)",
+      "Bash(docker-compose run --rm pacts-runner python scripts/print_metrics.py)",
+      "Bash(docker-compose exec -T postgres psql -U pacts -d pacts -c \"SELECT element_name, url_pattern, selector, strategy, hit_count, miss_count FROM selector_cache WHERE url_pattern LIKE ''%Opportunity%'' ORDER BY created_at DESC LIMIT 10;\")",
+      "Bash(docker-compose exec -T postgres psql -U pacts -d pacts -c \"DELETE FROM selector_cache WHERE url_pattern LIKE ''%/lightning/o/Opportunity/%'';\")",
+      "Bash(tee /tmp/sf_clean_run1.log)",
+      "Bash(tee /tmp/sf_clean_run2.log)",
+      "Bash(tee /tmp/sf_final_run1.log)",
+      "Bash(git checkout -b feat/sf-session-scope-combobox-guard)"
     ],
     "deny": [],
     "ask": []

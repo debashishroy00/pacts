@@ -2,13 +2,14 @@
 OracleHealer v2 Agent - Autonomous Self-Healing
 
 Implements reveal, reprobe, and stability-wait strategies to recover from failures.
-Max 3 healing rounds before routing to VerdictRCA.
+Max healing rounds configurable via MAX_HEAL_ROUNDS env (default: 3).
 
 Integrates with MCP Playwright for advanced reveal/reprobe capabilities when available.
 """
 from __future__ import annotations
 import time
 import logging
+import os
 from ..graph.state import RunState, Failure
 from ..runtime.browser_manager import BrowserManager
 from ..runtime.discovery import reprobe_with_alternates
@@ -41,8 +42,9 @@ async def run(state: RunState) -> RunState:
     Returns:
         RunState with healed selector or failure state for VerdictRCA
     """
-    # Guard: Max healing rounds
-    if state.heal_round >= 3:
+    # Guard: Max healing rounds (from env)
+    max_heal_rounds = int(os.getenv("MAX_HEAL_ROUNDS", "3"))
+    if state.heal_round >= max_heal_rounds:
         return state  # Let routing send to verdict_rca
 
     # Get browser singleton (pass config for headed mode, slow_mo, etc.)

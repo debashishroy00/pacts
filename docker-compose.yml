@@ -105,6 +105,7 @@ services:
       # Feature flags
       ENABLE_MEMORY: "true"
       CACHE_DEBUG: "true"
+      MAX_HEAL_ROUNDS: "5"
 
       # LLM configuration
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
