@@ -2,7 +2,7 @@
 PACTS Generated Test
 ====================
 Requirement ID: salesforce_opportunity_postlogin
-Generated: 2025-11-04 02:55:13
+Generated: 2025-11-04 03:28:15
 Verdict: FAIL
 
 Discovery Strategies Used:
@@ -39,25 +39,25 @@ async def test_salesforce_opportunity_postlogin():
         # Strategy: role_name, Confidence: 0.95
         await page.locator("role=button[name*="new"i]").click()
         # Step 2: FILL Opportunity Name
-        # Selector: #input-373
+        # Selector: #input-390
         # Strategy: label, Confidence: 0.92
-        await page.locator("#input-373").fill("Q1 2025 Enterprise Deal")
+        await page.locator("#input-390").fill("Q1 2025 Enterprise Deal")
         # Step 3: FILL Amount
-        # Selector: #input-358
+        # Selector: #input-375
         # Strategy: label, Confidence: 0.92
-        await page.locator("#input-358").fill("100000")
+        await page.locator("#input-375").fill("100000")
         # Step 4: CLICK Stage
-        # Selector: #combobox-button-353
+        # Selector: #combobox-button-404
         # Strategy: label, Confidence: 0.92
-        await page.locator("#combobox-button-353").click()
+        await page.locator("#combobox-button-404").click()
         # Step 5: SELECT Stage
-        # Selector: 
-        # Strategy: , Confidence: 
-        await page.locator("").select_option("Prospecting")
+        # Selector: #combobox-button-404
+        # Strategy: label, Confidence: 0.92
+        await page.locator("#combobox-button-404").select_option("Prospecting")
         # Step 6: FILL Close Date
-        # Selector: 
-        # Strategy: , Confidence: 
-        await page.locator("").fill("12/31/2025")
+        # Selector: role=button[name*=".*Close\ Date.*"i]
+        # Strategy: label, Confidence: 0.92
+        await page.locator("role=button[name*=".*Close\ Date.*"i]").fill("12/31/2025")
         # Step 7: FILL RAI Test Score
         # Selector: 
         # Strategy: , Confidence: 

@@ -19,7 +19,15 @@
       "Bash(tee /tmp/sf_clean_run1.log)",
       "Bash(tee /tmp/sf_clean_run2.log)",
       "Bash(tee /tmp/sf_final_run1.log)",
-      "Bash(git checkout -b feat/sf-session-scope-combobox-guard)"
+      "Bash(git checkout -b feat/sf-session-scope-combobox-guard)",
+      "Bash(docker-compose exec -T postgres psql -U pacts -d pacts -c \"DELETE FROM selector_cache WHERE url_pattern LIKE ''%/lightning/o/Opportunity/%'' AND selector ~ ''#(input|combobox-button)-[0-9]+'';\")",
+      "Bash(tee /tmp/sf_run_1.log)",
+      "Bash(tee /tmp/sf_run_2.log)",
+      "Bash(tee /tmp/sf_run3.log)",
+      "Bash(docker-compose exec -T postgres psql -U pacts -d pacts -c \"SELECT element_name, url_pattern, selector, strategy, hit_count, miss_count FROM selector_cache WHERE url_pattern LIKE ''%Opportunity%'' ORDER BY element_name, created_at DESC;\")",
+      "Bash(git add backend/storage/selector_cache.py backend/runtime/salesforce_helpers.py backend/agents/pom_builder.py backend/agents/oracle_healer.py docs/DAY-15-LIGHTNING-VALIDATION.md docs/SALESFORCE-VALIDATION-REPORT.md)",
+      "Bash(git commit -m \"$(cat <<''EOF''\nSF Lightning: session-scoped cache + drift logs + combobox aria fallback + heal-loop guard; Day-15 validation appendix\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>\nEOF\n)\")",
+      "Bash(git push -u origin feat/sf-session-scope-combobox-guard)"
     ],
     "deny": [],
     "ask": []
