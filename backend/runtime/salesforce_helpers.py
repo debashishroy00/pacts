@@ -329,6 +329,32 @@ def is_lightning(url_or_host: str) -> bool:
     return bool(LIGHTNING_HOST_RE.search(host))
 
 
+def is_lightning_form_url(url: str) -> bool:
+    """
+    Check if URL is a Lightning form creation page (list → new).
+
+    Phase 2a (Week 3): Used for optional cache bypass to avoid
+    within-session ID volatility on form pages.
+
+    Args:
+        url: Full URL to check
+
+    Returns:
+        bool: True if Lightning form create page detected
+
+    Examples:
+        >>> is_lightning_form_url("https://org.lightning.force.com/lightning/o/Opportunity/new")
+        True
+        >>> is_lightning_form_url("https://org.lightning.force.com/lightning/o/Opportunity/list")
+        False
+    """
+    if not url:
+        return False
+    u = url.lower()
+    # List → form create pages pattern
+    return ("lightning.force.com" in u or ".my.salesforce.com" in u) and ("/lightning/" in u) and ("/new" in u)
+
+
 async def ensure_lightning_ready(page) -> None:
     """
     Wait for Lightning SPA to fully hydrate before discovery.

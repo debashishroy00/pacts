@@ -22,6 +22,9 @@ from .base import BaseStorage
 
 logger = logging.getLogger(__name__)
 
+# Phase 2a: Optional Lightning form cache bypass (Week 3)
+BYPASS_SF_CACHE = os.getenv("PACTS_SF_BYPASS_FORM_CACHE", "false").lower() in ("1", "true", "yes")
+
 
 def _session_key(ctx: Optional[Dict[str, Any]] = None) -> str:
     """
@@ -105,6 +108,14 @@ class SelectorCache(BaseStorage):
             }
             or None if cache miss
         """
+        # Phase 2a: Optional Lightning form bypass
+        if BYPASS_SF_CACHE:
+            from backend.runtime.salesforce_helpers import is_lightning_form_url
+            if is_lightning_form_url(url):
+                logger.info(f"[CACHE][BYPASS] Lightning form detected; skipping cache for '{element}' @ {self._normalize_url(url)}")
+                await self._record_metric("cache_miss")
+                return None  # Force fresh discovery
+
         # Try Redis first (fast path)
         redis_result = await self._get_from_redis(url, element, context)
         if redis_result:
