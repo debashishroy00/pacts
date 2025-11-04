@@ -73,11 +73,12 @@
 
 ## 📋 Implementation Plans
 
-### Active Plans (Week 3-4)
+### Active Plans (Week 4)
 
 | File | Purpose | Status | Timeline |
 |------|---------|--------|----------|
-| **[DAY-9-12-ACTION-PLAN.md](DAY-9-12-ACTION-PLAN.md)** | Week 2-3 action items | ⚠️ Partially Complete | Week 2-3 |
+| **[WEEK-4-LABEL-FIRST-IMPLEMENTATION.md](WEEK-4-LABEL-FIRST-IMPLEMENTATION.md)** | Label-first discovery strategy | 📋 **Ready** | Week 4 (1-2 days) |
+| **[DAY-9-12-ACTION-PLAN.md](DAY-9-12-ACTION-PLAN.md)** | Week 2-3 action items | ✅ Complete | Week 2-3 |
 | **[NEXT-STEPS-REALISTIC.md](NEXT-STEPS-REALISTIC.md)** | Realistic next steps | ⚠️ Outdated | Week 2 |
 
 ### Roadmaps & Blueprints
@@ -163,7 +164,8 @@
 - Context: [DAY-9-FINAL-RESULTS.md](DAY-9-FINAL-RESULTS.md) (Day 9 blocker)
 
 **...plan Week 4 work**
-- Read: Week 4 Roadmap in [DAY-15-LIGHTNING-VALIDATION.md](DAY-15-LIGHTNING-VALIDATION.md#week-4-roadmap-label-first-strategy)
+- Read: [WEEK-4-LABEL-FIRST-IMPLEMENTATION.md](WEEK-4-LABEL-FIRST-IMPLEMENTATION.md) (detailed plan)
+- Summary: Week 4 Roadmap in [DAY-15-LIGHTNING-VALIDATION.md](DAY-15-LIGHTNING-VALIDATION.md#week-4-roadmap-label-first-strategy)
 
 ---
 
