@@ -16,6 +16,14 @@ env_path = project_root / ".env"
 if env_path.exists():
     load_dotenv(env_path)
 
+# Week 5: Context-aware planner (UX heuristics)
+try:
+    from ..runtime.heuristics.ux_patterns import UX_PATTERNS
+    UX_TOGGLE = os.getenv("PACTS_PLANNER_UX_RULES", "true").lower() == "true"
+except ImportError:
+    UX_PATTERNS = []
+    UX_TOGGLE = False
+
 def _normalize_hitl_actions(spec: Dict[str, Any]) -> Dict[str, Any]:
     """
     Post-processor safety net: Normalize obvious 2FA/CAPTCHA/verification steps to "wait" action.
@@ -89,6 +97,66 @@ def _add_region_hints(spec: Dict[str, Any]) -> Dict[str, Any]:
                 # Stop scoping after clicking an object (navigates away from launcher)
                 if any(obj in target for obj in ["accounts", "contacts"]):
                     in_app_launcher = False
+
+    return spec
+
+
+def _enrich_steps_with_ux_patterns(spec: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Week 5: Context-aware planner (UX heuristics).
+
+    Enrich steps with UX pattern metadata (waits, scoping, gates) based on declarative rules.
+    This is a lightweight post-processor that adds context-aware hints without heavy logic.
+
+    Args:
+        spec: PACTS JSON specification
+
+    Returns:
+        Specification with UX pattern enrichments added to steps
+    """
+    if not UX_TOGGLE or not UX_PATTERNS:
+        return spec
+
+    for tc in spec.get("testcases", []):
+        steps = tc.get("steps", [])
+        prev_step_target = None
+
+        for i, step in enumerate(steps):
+            target = get_step_target(step).lower()
+            action = step.get("action", "").lower()
+
+            # Build simple matching context
+            match_context = {
+                "action": action,
+                "target": step.get("target", ""),
+                "target_lower": target,
+                "prev_step_has": prev_step_target,
+            }
+
+            # Apply matching rules
+            for rule in UX_PATTERNS:
+                matched = True
+                for key, expected in rule.get("when", {}).items():
+                    actual = match_context.get(key)
+
+                    if key == "contains_text":
+                        if expected.lower() not in target:
+                            matched = False
+                    elif key == "prev_step_has":
+                        if not prev_step_target or expected.lower() not in prev_step_target.lower():
+                            matched = False
+                    elif actual != expected:
+                        matched = False
+
+                if matched:
+                    # Apply enrichments from rule
+                    for enrich_key, enrich_value in rule.get("adds", {}).items():
+                        if enrich_key not in step or not step[enrich_key]:
+                            step[enrich_key] = enrich_value
+
+                    print(f"[Planner] 🎯 Applied UX rule '{rule['id']}' to step {i}: {step.get('target')}")
+
+            prev_step_target = step.get("target")
 
     return spec
 
@@ -287,6 +355,8 @@ Return ONLY the JSON specification, no markdown code blocks or explanations."""
         parsed_json = _normalize_hitl_actions(parsed_json)
         # Post-processor: add region hints for Salesforce App Launcher navigation
         parsed_json = _add_region_hints(parsed_json)
+        # Week 5: Context-aware planner - enrich with UX pattern metadata
+        parsed_json = _enrich_steps_with_ux_patterns(parsed_json)
         return parsed_json
     except json.JSONDecodeError as e:
         raise ValueError(
