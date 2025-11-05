@@ -493,3 +493,90 @@ def build_combobox_button_selector(attrs: dict) -> Optional[str]:
         return f'role=button[name="{nm}"]'
 
     return None
+
+
+# Week 5: Scoped Discovery Utilities
+
+async def resolve_scope_container(page, scope: dict):
+    """
+    Resolve common scopes used by the planner.
+
+    Week 5: Enable scoped discovery inside dialogs/modals/regions.
+
+    Args:
+        page: Playwright Page object
+        scope: Dict with 'name', 'within', or 'kind'
+
+    Returns:
+        Locator for the scoped container, or None if not found
+    """
+    name = (scope.get("name") or scope.get("within") or "").lower()
+
+    # App Launcher dialog
+    if "app launcher" in name or scope.get("kind") == "dialog_app_launcher":
+        # Try robust role-based first
+        dlg = page.get_by_role("dialog")
+        count = await dlg.count()
+        if count > 0:
+            # Check if any dialog contains "app launcher" text
+            for i in range(count):
+                try:
+                    text = await dlg.nth(i).text_content()
+                    if text and "app launcher" in text.lower():
+                        return dlg.nth(i)
+                except:
+                    pass
+            # Fallback to first dialog
+            return dlg.first
+
+        # Fallback: dialog with search input
+        search = page.get_by_placeholder("Search apps and items")
+        search_count = await search.count()
+        if search_count > 0:
+            return search.first.locator("xpath=ancestor::*[@role='dialog'][1]")
+
+        # Fallback: launcher panel container
+        panel = page.locator("[data-aura-class*='appLauncher'], one-app-launcher-menu, [role='dialog']")
+        panel_count = await panel.count()
+        if panel_count > 0:
+            return panel.first
+
+        return None
+
+    # Active modal/dialog generic
+    if scope.get("kind") == "dialog":
+        dlg = page.get_by_role("dialog")
+        text_filter = scope.get("text", "")
+        if text_filter:
+            dlg = dlg.filter(has_text=text_filter)
+        count = await dlg.count()
+        return dlg.first if count > 0 else None
+
+    return None
+
+
+async def ensure_lightning_ready_list(page):
+    """
+    Soft readiness check for Lightning list views before clicking 'New'.
+
+    Week 5: Prevent timeout on "New" button when list page loads without full hydration.
+
+    Args:
+        page: Playwright Page object
+
+    Returns:
+        True if Lightning list page is ready, False otherwise
+    """
+    url = page.url or ""
+    if "/lightning/o/" in url and "/list" in url:
+        try:
+            await page.wait_for_load_state("networkidle", timeout=5000)
+            # Ensure toolbar area exists before 'New'
+            toolbar = page.locator("[data-aura-class*='forceListViewManagerToolbar'], [data-aura-class*='force-list-view']")
+            toolbar_count = await toolbar.count()
+            if toolbar_count > 0:
+                await page.wait_for_timeout(500)  # small settle
+            return True
+        except Exception:
+            return False
+    return False
