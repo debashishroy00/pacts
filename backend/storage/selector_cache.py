@@ -104,7 +104,8 @@ class SelectorCache(BaseStorage):
                 "strategy": str,
                 "confidence": float,
                 "source": "redis" | "postgres",
-                "last_verified": timestamp
+                "last_verified": timestamp,
+                "stable": bool  # Week 4: Whether selector uses stable attributes
             }
             or None if cache miss
         """
@@ -150,6 +151,7 @@ class SelectorCache(BaseStorage):
                 postgres_result["confidence"],
                 postgres_result["strategy"],
                 context,
+                stable=False,  # Week 4: Postgres doesn't track stability (no schema change)
             )
 
             postgres_result["source"] = "postgres"
@@ -169,6 +171,7 @@ class SelectorCache(BaseStorage):
         strategy: str,
         dom_hash: Optional[str] = None,
         context: Optional[Dict[str, Any]] = None,
+        stable: bool = False,  # Week 4: Track selector stability
     ):
         """
         Save selector to both caches.
@@ -185,6 +188,7 @@ class SelectorCache(BaseStorage):
             confidence: Confidence score (0.0-1.0)
             strategy: Discovery strategy used
             dom_hash: DOM hash for drift detection
+            stable: Week 4 - Whether selector uses stable attributes (aria-label/name/placeholder)
         """
         url_pattern = self._normalize_url(url)
 
@@ -211,7 +215,7 @@ class SelectorCache(BaseStorage):
         )
 
         # Save to Redis (warm cache)
-        await self._save_to_redis(url, element, selector, confidence, strategy, context)
+        await self._save_to_redis(url, element, selector, confidence, strategy, context, stable)
 
         # Store DOM hash for drift detection
         if dom_hash:
@@ -333,7 +337,7 @@ class SelectorCache(BaseStorage):
         return None
 
     async def _save_to_redis(
-        self, url: str, element: str, selector: str, confidence: float, strategy: str, context: Optional[Dict[str, Any]] = None
+        self, url: str, element: str, selector: str, confidence: float, strategy: str, context: Optional[Dict[str, Any]] = None, stable: bool = False
     ):
         """Save selector to Redis with TTL."""
         key = self._redis_key(url, element, context)
@@ -342,6 +346,7 @@ class SelectorCache(BaseStorage):
             "confidence": confidence,
             "strategy": strategy,
             "last_verified": datetime.now().timestamp(),
+            "stable": stable,  # Week 4: Track selector stability
         }
         await self.cache.set_json(key, data, ttl=self._redis_ttl)
 

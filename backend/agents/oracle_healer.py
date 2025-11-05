@@ -180,7 +180,15 @@ async def run(state: RunState) -> RunState:
         )
 
         if discovered:
-            new_selector = discovered["selector"]
+            # Week 4: Prefer stable selectors (label-first strategy)
+            # If multiple candidates exist (future: reprobe could return list), sort by stability
+            candidates = [discovered["selector"]]  # Could have multiple from reprobe
+            stable_first = sorted(
+                candidates,
+                key=lambda s: 0 if any(k in s for k in ('[aria-label=', '[name=', '[placeholder=')) else 1
+            )
+            new_selector = stable_first[0]
+
             reprobe_strategy = discovered["meta"]["strategy"]
             heal_event["actions"].append(f"reprobe:{reprobe_strategy}")
             heal_event["new_selector"] = new_selector

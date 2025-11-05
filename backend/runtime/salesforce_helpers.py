@@ -444,3 +444,52 @@ async def resolve_combobox_by_label(page, label_text: str) -> Optional[str]:
 
     print(f"[SALESFORCE] ❌ Combobox fallback exhausted for: '{label_text}'")
     return None
+
+
+# Week 4: Stable selector builders (label-first discovery)
+def build_input_selector_from_attrs(attrs: dict) -> Optional[str]:
+    """
+    Build stable input selector from attributes.
+    Week 4: Priority - aria-label > name > placeholder (avoid volatile IDs).
+
+    Args:
+        attrs: Dictionary of element attributes
+
+    Returns:
+        Stable selector string or None
+    """
+    # Priority 1: aria-label (most stable)
+    if al := attrs.get("aria-label"):
+        return f'input[aria-label="{al}"]'
+
+    # Priority 2: name attribute
+    if nm := attrs.get("name"):
+        return f'input[name="{nm}"]'
+
+    # Priority 3: placeholder
+    if ph := attrs.get("placeholder"):
+        return f'input[placeholder="{ph}"]'
+
+    return None
+
+
+def build_combobox_button_selector(attrs: dict) -> Optional[str]:
+    """
+    Build stable combobox button selector from attributes.
+    Week 4: Salesforce Lightning often exposes aria-label on buttons.
+
+    Args:
+        attrs: Dictionary of element attributes
+
+    Returns:
+        Stable selector string or None
+    """
+    # Priority 1: aria-label on button
+    if al := attrs.get("aria-label"):
+        return f'button[aria-label="{al}"]'
+
+    # Priority 2: name attribute (fallback)
+    if nm := attrs.get("name"):
+        return f'role=button[name="{nm}"]'
+
+    return None

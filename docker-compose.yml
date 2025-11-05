@@ -107,8 +107,8 @@ services:
       CACHE_DEBUG: "true"
       MAX_HEAL_ROUNDS: "5"
 
-      # Salesforce Lightning config (Phase 2a - Week 3)
-      PACTS_SF_BYPASS_FORM_CACHE: "true"
+      # Salesforce Lightning config (Week 4 - label-first strategy)
+      PACTS_SF_BYPASS_FORM_CACHE: "false"
 
       # LLM configuration
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}

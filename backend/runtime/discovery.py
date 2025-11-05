@@ -160,7 +160,34 @@ async def _try_label(browser, intent) -> Optional[Dict[str, Any]]:
     normalized_name = normalize_text(name)
     action = intent.get("action", "fill")
 
-    # Try exact match first
+    # Week 4: Try aria-label first (stable selector)
+    try:
+        from backend.runtime.salesforce_helpers import build_input_selector_from_attrs, build_combobox_button_selector
+
+        # Try finding element by aria-label directly
+        aria_label_selector = f'[aria-label="{name}"]'
+        count = await browser.locator_count(aria_label_selector)
+        if count > 0:
+            el_handle = await browser.page.locator(aria_label_selector).first.element_handle()
+            if el_handle and await _check_visibility(browser, aria_label_selector, el_handle):
+                # Check if it's an input or button
+                tag_name = await el_handle.evaluate("el => el.tagName.toLowerCase()")
+                if tag_name == "input":
+                    stable_sel = f'input[aria-label="{name}"]'
+                elif tag_name == "button":
+                    stable_sel = f'button[aria-label="{name}"]'
+                else:
+                    stable_sel = aria_label_selector
+
+                return {
+                    "selector": stable_sel,
+                    "score": 0.95,
+                    "meta": {"strategy": "aria_label", "name": name, "stable": True}
+                }
+    except Exception as e:
+        logger.debug(f"[Discovery] aria-label strategy failed: {e}")
+
+    # Try exact match (existing logic)
     exact_pattern = re.compile(re.escape(normalized_name), re.I)
     found = await browser.find_by_label(exact_pattern)
     if found:
@@ -173,7 +200,33 @@ async def _try_label(browser, intent) -> Optional[Dict[str, Any]]:
         if not await _is_fillable_element(browser, selector, el, action):
             logger.debug(f"[Discovery] Label match '{selector}' is not fillable (likely select/button), trying next strategy")
             return None
-        return {"selector": selector, "score": 0.92, "meta": {"strategy": "label", "name": name, "normalized": normalized_name}}
+
+        # Week 4: Try to build stable selector from element attributes
+        try:
+            from backend.runtime.salesforce_helpers import build_input_selector_from_attrs, build_combobox_button_selector
+
+            # Extract attributes from found element
+            attrs = {}
+            if el:
+                attrs["aria-label"] = await el.get_attribute("aria-label")
+                attrs["name"] = await el.get_attribute("name")
+                attrs["placeholder"] = await el.get_attribute("placeholder")
+
+                # Try to build stable selector
+                tag_name = await el.evaluate("el => el.tagName.toLowerCase()")
+                if tag_name == "input":
+                    stable_sel = build_input_selector_from_attrs(attrs)
+                    if stable_sel:
+                        return {"selector": stable_sel, "score": 0.93, "meta": {"strategy": "label_stable", "name": name, "stable": True}}
+                elif tag_name == "button":
+                    stable_sel = build_combobox_button_selector(attrs)
+                    if stable_sel:
+                        return {"selector": stable_sel, "score": 0.93, "meta": {"strategy": "label_stable", "name": name, "stable": True}}
+        except Exception as e:
+            logger.debug(f"[Discovery] Stable selector build failed, using default: {e}")
+
+        # Fallback to original ID-based selector
+        return {"selector": selector, "score": 0.92, "meta": {"strategy": "label", "name": name, "normalized": normalized_name, "stable": False}}
 
     # Try fuzzy match
     fuzzy_pattern = create_fuzzy_pattern(normalized_name)
@@ -188,7 +241,24 @@ async def _try_label(browser, intent) -> Optional[Dict[str, Any]]:
         if not await _is_fillable_element(browser, selector, el, action):
             logger.debug(f"[Discovery] Label fuzzy match '{selector}' is not fillable, trying next strategy")
             return None
-        return {"selector": selector, "score": 0.90, "meta": {"strategy": "label_fuzzy", "name": name, "normalized": normalized_name}}
+
+        # Week 4: Try stable selector for fuzzy match too
+        try:
+            from backend.runtime.salesforce_helpers import build_input_selector_from_attrs
+
+            attrs = {}
+            if el:
+                attrs["aria-label"] = await el.get_attribute("aria-label")
+                attrs["name"] = await el.get_attribute("name")
+                attrs["placeholder"] = await el.get_attribute("placeholder")
+
+                stable_sel = build_input_selector_from_attrs(attrs)
+                if stable_sel:
+                    return {"selector": stable_sel, "score": 0.91, "meta": {"strategy": "label_fuzzy_stable", "name": name, "stable": True}}
+        except Exception:
+            pass
+
+        return {"selector": selector, "score": 0.90, "meta": {"strategy": "label_fuzzy", "name": name, "normalized": normalized_name, "stable": False}}
 
     return None
 
@@ -208,7 +278,17 @@ async def _try_placeholder(browser, intent) -> Optional[Dict[str, Any]]:
         if not await _check_visibility(browser, selector, el):
             logger.debug(f"[Discovery] Placeholder match '{selector}' is hidden, trying next strategy")
             return None
-        return {"selector": selector, "score": 0.88, "meta": {"strategy": "placeholder", "name": name, "normalized": normalized_name}}
+
+        # Week 4: Build stable placeholder selector
+        try:
+            placeholder_val = await el.get_attribute("placeholder")
+            if placeholder_val:
+                stable_sel = f'input[placeholder="{placeholder_val}"]'
+                return {"selector": stable_sel, "score": 0.89, "meta": {"strategy": "placeholder", "name": name, "stable": True}}
+        except Exception:
+            pass
+
+        return {"selector": selector, "score": 0.88, "meta": {"strategy": "placeholder", "name": name, "normalized": normalized_name, "stable": False}}
 
     # Try fuzzy match
     fuzzy_pattern = create_fuzzy_pattern(normalized_name)
@@ -219,7 +299,17 @@ async def _try_placeholder(browser, intent) -> Optional[Dict[str, Any]]:
         if not await _check_visibility(browser, selector, el):
             logger.debug(f"[Discovery] Placeholder fuzzy match '{selector}' is hidden, trying next strategy")
             return None
-        return {"selector": selector, "score": 0.86, "meta": {"strategy": "placeholder_fuzzy", "name": name, "normalized": normalized_name}}
+
+        # Week 4: Build stable placeholder selector for fuzzy match too
+        try:
+            placeholder_val = await el.get_attribute("placeholder")
+            if placeholder_val:
+                stable_sel = f'input[placeholder="{placeholder_val}"]'
+                return {"selector": stable_sel, "score": 0.87, "meta": {"strategy": "placeholder_fuzzy", "name": name, "stable": True}}
+        except Exception:
+            pass
+
+        return {"selector": selector, "score": 0.86, "meta": {"strategy": "placeholder_fuzzy", "name": name, "normalized": normalized_name, "stable": False}}
 
     return None
 

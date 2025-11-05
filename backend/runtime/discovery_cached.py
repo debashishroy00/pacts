@@ -72,10 +72,12 @@ async def discover_selector_cached(browser, intent: Dict[str, Any]) -> Optional[
         if cached:
             # Cache hit!
             source = cached.get("source", "unknown")
+            stable = cached.get("stable", False)  # Week 4: Track selector stability
 
             if CACHE_DEBUG:
+                stable_indicator = "✓stable" if stable else "⚠volatile"
                 print(
-                    f"[CACHE] 🎯 HIT ({source}): {element} → {cached['selector'][:50]}"
+                    f"[CACHE] 🎯 HIT ({source}): {element} → {cached['selector'][:50]} ({stable_indicator})"
                 )
 
             # Return in discover_selector format
@@ -86,6 +88,7 @@ async def discover_selector_cached(browser, intent: Dict[str, Any]) -> Optional[
                     "strategy": cached.get("strategy", "cached"),
                     "source": source,
                     "cached": True,
+                    "stable": stable,  # Week 4: Pass stability info
                 },
             }
 
@@ -101,18 +104,23 @@ async def discover_selector_cached(browser, intent: Dict[str, Any]) -> Optional[
     if result:
         # Cache successful discovery
         try:
+            meta = result.get("meta", {})
+            stable = meta.get("stable", False)  # Week 4: Extract stability flag
+
             await storage.selector_cache.save_selector(
                 url=url,
                 element=element,
                 selector=result["selector"],
                 confidence=result.get("score", 0.0),
-                strategy=result.get("meta", {}).get("strategy", "unknown"),
+                strategy=meta.get("strategy", "unknown"),
                 dom_hash=dom_hash,
+                stable=stable,  # Week 4: Pass stability to cache
             )
 
             if CACHE_DEBUG:
+                stable_indicator = "✓stable" if stable else "⚠volatile"
                 print(
-                    f"[CACHE] 💾 SAVED: {element} → {result['selector'][:50]} (strategy: {result.get('meta', {}).get('strategy')})"
+                    f"[CACHE] 💾 SAVED: {element} → {result['selector'][:50]} (strategy: {meta.get('strategy')}, {stable_indicator})"
                 )
 
             # Mark as newly discovered
