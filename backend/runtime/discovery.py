@@ -81,6 +81,7 @@ def create_fuzzy_pattern(text: str) -> re.Pattern:
 STRATEGIES = [
     "label",
     "placeholder",
+    "email_type",  # Week 6: Email field fallback
     "role_name",
     "relational_css",
     "shadow_pierce",
@@ -314,6 +315,39 @@ async def _try_placeholder(browser, intent) -> Optional[Dict[str, Any]]:
 
     return None
 
+async def _try_email_type(browser, intent) -> Optional[Dict[str, Any]]:
+    """Week 6: Fallback for email fields that use type='email' instead of name/label"""
+    name = intent.get("element") or intent.get("intent") or ""
+    normalized_name = normalize_text(name)
+
+    # Only apply to fields with "email" in the name
+    if "email" not in normalized_name:
+        return None
+
+    # Try to find input[type="email"]
+    try:
+        selector = 'input[type="email"]'
+        count = await browser.locator_count(selector)
+
+        if count == 1:
+            # Unique email field found
+            logger.info(f"[Discovery] Found unique email field via type='email'")
+            return {
+                "selector": selector,
+                "score": 0.88,
+                "meta": {
+                    "strategy": "type_email",
+                    "name": name,
+                    "stable": True  # type attribute is stable
+                }
+            }
+        elif count > 1:
+            logger.debug(f"[Discovery] Multiple email fields found (count={count}), skipping type='email' strategy")
+    except Exception as e:
+        logger.debug(f"[Discovery] Email type strategy failed: {e}")
+
+    return None
+
 async def _try_role_name(browser, intent) -> Optional[Dict[str, Any]]:
     name = (intent.get("element") or intent.get("intent") or "").strip()
     action = (intent.get("action") or "").lower()
@@ -526,6 +560,7 @@ async def _try_fallback_css(browser, intent) -> Optional[Dict[str, Any]]:
 STRATEGY_FUNCS = {
     "label": _try_label,
     "placeholder": _try_placeholder,
+    "email_type": _try_email_type,  # Week 6: Email field fallback
     "role_name": _try_role_name,
     "relational_css": _try_relational_css,
     "shadow_pierce": _try_shadow_pierce,
@@ -844,6 +879,11 @@ async def reprobe_with_alternates(
 
         # Try placeholder strategy
         result = await _try_placeholder(browser, intent)
+        if result:
+            return result
+
+        # Week 6: Try email type strategy
+        result = await _try_email_type(browser, intent)
         if result:
             return result
 

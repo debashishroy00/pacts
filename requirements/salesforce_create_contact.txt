@@ -1,0 +1,25 @@
+Test: Salesforce Create Contact (via App Launcher; keyboard accept)
+
+URL: https://orgfarm-9a1de3d5e8-dev-ed.develop.my.salesforce.com
+
+Prerequisites: User must be logged in to Salesforce
+
+Test Steps:
+1. Click "App Launcher"
+2. Fill "Search apps and items..." with "Contacts"
+3. Press "Enter" on "Search apps and items..."
+4. Click "New"
+5. Fill "First Name" with "John"
+6. Fill "Last Name" with "Smith"
+7. Fill "Email" with "john.smith@example.com"
+8. Fill "Phone" with "555-0102"
+9. Click "Save"
+
+Expected: Successfully create one Contact in Salesforce
+
+Notes:
+- This test assumes user is already logged in
+- Uses keyboard Enter to accept App Launcher search (avoids not_unique issue)
+- Tests App Launcher navigation + form filling
+- Validates label-first discovery on form fields
+- Validates Week 5 scoped discovery for App Launcher

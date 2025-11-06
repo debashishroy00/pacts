@@ -367,6 +367,10 @@ async def run(state: RunState) -> RunState:
                 pass
             return state
 
+    # Week 6: Lightning readiness check before validation (ensures toolbar ready on cache hits)
+    if "lightning.force.com" in browser.page.url:
+        await sf.ensure_lightning_ready_list(browser.page)
+
     # Normal path: Validate element with five_point gate
     failure, el = await _validate_step(browser, step, heal_round=state.heal_round)
 
