@@ -765,10 +765,22 @@ async def discover_selector(browser, intent) -> Optional[Dict[str, Any]]:
         return None
 
     # PRIORITY 3: Semantic strategies (existing)
-    for name in STRATEGIES[:3]:  # label, placeholder, role_name
+    for name in STRATEGIES[:4]:  # label, placeholder, email_type, role_name
         cand = await STRATEGY_FUNCS[name](browser, intent)
         if cand:
             return cand
+
+    # Week 7: Lightning component resolver (Salesforce-specific)
+    # Try this after standard strategies but before generic heuristics
+    try:
+        current_url = browser.page.url if browser and hasattr(browser, 'page') and browser.page else ""
+        if "lightning.force.com" in current_url:
+            from backend.runtime.salesforce_helpers import resolve_lightning_field
+            lightning_result = await resolve_lightning_field(browser.page, target)
+            if lightning_result:
+                return lightning_result
+    except Exception as e:
+        logger.debug(f"[DISCOVERY] Lightning resolver check failed: {e}")
 
     # PRIORITY 4: Heuristics for common landmarks
     target_lower = target.lower()

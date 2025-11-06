@@ -584,3 +584,101 @@ async def ensure_lightning_ready_list(page):
             print(f"[LIGHTNING_READY] ⚠️ Readiness check failed: {e}")
             return False
     return False
+
+
+async def resolve_lightning_field(page, label: str):
+    """
+    Week 7: Resolve Salesforce Lightning input fields by data-field or aria-label.
+
+    Lightning components often use custom attributes instead of standard HTML:
+    - data-field="Email" instead of name="email"
+    - data-field-id for unique identification
+    - aria-label for accessibility
+
+    Args:
+        page: Playwright Page object
+        label: Field label/name to search for (e.g., "Email", "Phone")
+
+    Returns:
+        Dict with selector and metadata if found, None otherwise
+    """
+    import re
+
+    normalized = label.strip().lower()
+
+    # Try multiple Lightning component patterns
+    try:
+        # Pattern 1: lightning-input with data-field attribute
+        candidates = page.locator(
+            f'lightning-input[data-field*="{normalized}" i]'
+        )
+        count = await candidates.count()
+
+        if count == 1:
+            # Found unique Lightning component
+            data_field = await candidates.first.get_attribute("data-field")
+            if data_field:
+                # Target the actual input inside the lightning component
+                selector = f'lightning-input[data-field="{data_field}"] input'
+                print(f"[DISCOVERY] ✅ Found Lightning field via data-field='{data_field}'")
+                return {
+                    "selector": selector,
+                    "score": 0.92,
+                    "meta": {
+                        "strategy": "lightning_data_field",
+                        "name": label,
+                        "data_field": data_field,
+                        "stable": True  # data-field is stable across sessions
+                    }
+                }
+
+        # Pattern 2: input with aria-label inside lightning component
+        if count == 0:
+            aria_candidates = page.locator(
+                f'lightning-input input[aria-label*="{normalized}" i]'
+            )
+            aria_count = await aria_candidates.count()
+
+            if aria_count == 1:
+                aria_label = await aria_candidates.first.get_attribute("aria-label")
+                if aria_label:
+                    selector = f'input[aria-label="{aria_label}"]'
+                    print(f"[DISCOVERY] ✅ Found Lightning field via aria-label='{aria_label}'")
+                    return {
+                        "selector": selector,
+                        "score": 0.91,
+                        "meta": {
+                            "strategy": "lightning_aria_label",
+                            "name": label,
+                            "aria_label": aria_label,
+                            "stable": True
+                        }
+                    }
+
+        # Pattern 3: data-field-id attribute
+        if count == 0:
+            field_id_candidates = page.locator(
+                f'[data-field-id*="{normalized}" i]'
+            )
+            field_id_count = await field_id_candidates.count()
+
+            if field_id_count == 1:
+                field_id = await field_id_candidates.first.get_attribute("data-field-id")
+                if field_id:
+                    selector = f'[data-field-id="{field_id}"] input'
+                    print(f"[DISCOVERY] ✅ Found Lightning field via data-field-id='{field_id}'")
+                    return {
+                        "selector": selector,
+                        "score": 0.90,
+                        "meta": {
+                            "strategy": "lightning_field_id",
+                            "name": label,
+                            "field_id": field_id,
+                            "stable": True
+                        }
+                    }
+
+    except Exception as e:
+        print(f"[DISCOVERY] Lightning field resolver failed for '{label}': {e}")
+
+    return None
