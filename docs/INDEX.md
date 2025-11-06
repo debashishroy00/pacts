@@ -1,6 +1,6 @@
 # PACTS v3.0 - Documentation Index
 
-**Last Updated**: 2025-11-03
+**Last Updated**: 2025-11-05
 **Purpose**: Master index for all PACTS documentation
 
 ---
@@ -49,15 +49,16 @@
 
 ## ✅ Validation & Testing Reports
 
-### Salesforce Lightning Testing (Week 3 - Current)
+### Salesforce Lightning Testing (Week 4-7 - Current)
 
 | File | Purpose | Status | Key Findings |
 |------|---------|--------|--------------|
-| **[DAY-15-LIGHTNING-VALIDATION.md](DAY-15-LIGHTNING-VALIDATION.md)** | Week 3 comprehensive validation | ✅ **Current** | 100% PASS (Phase 2a bypass) |
-| **[SALESFORCE-VALIDATION-REPORT.md](SALESFORCE-VALIDATION-REPORT.md)** | Standalone validation summary | ✅ Current | Session-scoped cache + bypass |
+| **[WEEK-4-7-VALIDATION-REPORT.md](WEEK-4-7-VALIDATION-REPORT.md)** | 🆕 Week 4-7 comprehensive validation | ✅ **LATEST** | Weeks 4-6 PRODUCTION READY |
+| **[DAY-15-LIGHTNING-VALIDATION.md](DAY-15-LIGHTNING-VALIDATION.md)** | Week 3 validation | ✅ Reference | 100% PASS (Phase 2a bypass) |
+| **[SALESFORCE-VALIDATION-REPORT.md](SALESFORCE-VALIDATION-REPORT.md)** | Week 3 standalone summary | ✅ Reference | Session-scoped cache + bypass |
 | **[DAY-9-FINAL-RESULTS.md](DAY-9-FINAL-RESULTS.md)** | Day 9 Lightning blocker findings | ✅ Reference | "New" button timeout identified |
 
-**Latest Results**: [DAY-15-LIGHTNING-VALIDATION.md](DAY-15-LIGHTNING-VALIDATION.md) - 100% PASS with Phase 2a bypass
+**Latest Results**: [WEEK-4-7-VALIDATION-REPORT.md](WEEK-4-7-VALIDATION-REPORT.md) - **Weeks 4-6 PRODUCTION READY** (label-first discovery, 100% cache hits, 0 heals)
 
 ### Historical Test Reports (Week 2)
 
@@ -73,13 +74,19 @@
 
 ## 📋 Implementation Plans
 
-### Active Plans (Week 4)
+### Active Plans (Week 8 - Next)
 
 | File | Purpose | Status | Timeline |
 |------|---------|--------|----------|
-| **[WEEK-4-LABEL-FIRST-IMPLEMENTATION.md](WEEK-4-LABEL-FIRST-IMPLEMENTATION.md)** | Label-first discovery strategy | 📋 **Ready** | Week 4 (1-2 days) |
-| **[DAY-9-12-ACTION-PLAN.md](DAY-9-12-ACTION-PLAN.md)** | Week 2-3 action items | ✅ Complete | Week 2-3 |
-| **[NEXT-STEPS-REALISTIC.md](NEXT-STEPS-REALISTIC.md)** | Realistic next steps | ⚠️ Outdated | Week 2 |
+| **[WEEK-4-7-VALIDATION-REPORT.md](WEEK-4-7-VALIDATION-REPORT.md)** | 🆕 Week 4-7 results + Week 8 roadmap | ✅ **Current** | Week 8 (Contact Email resolver) |
+
+### Completed Plans (Week 4-7)
+
+| File | Purpose | Status | Outcome |
+|------|---------|--------|---------|
+| **[WEEK-4-LABEL-FIRST-IMPLEMENTATION.md](WEEK-4-LABEL-FIRST-IMPLEMENTATION.md)** | Label-first discovery strategy | ✅ **Complete** | 100% PASS, 62.5% stable selectors |
+| **[DAY-9-12-ACTION-PLAN.md](DAY-9-12-ACTION-PLAN.md)** | Week 2-3 action items | ✅ Complete | Session-scoped cache, bypass |
+| **[NEXT-STEPS-REALISTIC.md](NEXT-STEPS-REALISTIC.md)** | Realistic next steps | ⚠️ Outdated | Superseded by Week 4-7 |
 
 ### Roadmaps & Blueprints
 
@@ -87,7 +94,7 @@
 |------|---------|--------|---------|
 | **[PACTS-v3.0-IMPLEMENTATION-PLAN.md](PACTS-v3.0-IMPLEMENTATION-PLAN.md)** | v3.0 implementation roadmap | ✅ Reference | v3.0 |
 
-**Week 4 Plan**: Label-first discovery strategy (see [DAY-15-LIGHTNING-VALIDATION.md](DAY-15-LIGHTNING-VALIDATION.md) roadmap section)
+**Week 8 Roadmap**: Contact Email resolver, Lightning warm-run stability (see [WEEK-4-7-VALIDATION-REPORT.md](WEEK-4-7-VALIDATION-REPORT.md) Next Steps)
 
 ---
 
@@ -148,8 +155,8 @@
 - Then: [PACTS-COMPLETE-SPECIFICATION.md](PACTS-COMPLETE-SPECIFICATION.md)
 
 **...see latest test results**
-- Read: [DAY-15-LIGHTNING-VALIDATION.md](DAY-15-LIGHTNING-VALIDATION.md)
-- Summary: [SALESFORCE-VALIDATION-REPORT.md](SALESFORCE-VALIDATION-REPORT.md)
+- Read: [WEEK-4-7-VALIDATION-REPORT.md](WEEK-4-7-VALIDATION-REPORT.md) (🆕 LATEST)
+- Previous: [DAY-15-LIGHTNING-VALIDATION.md](DAY-15-LIGHTNING-VALIDATION.md)
 
 **...fix a Docker issue**
 - Read: [WINDOWS-DOCKER-NETWORKING-ISSUE.md](WINDOWS-DOCKER-NETWORKING-ISSUE.md)
@@ -159,13 +166,13 @@
 - Read: [DEPENDENCY-RESOLUTION-SOLUTION.md](DEPENDENCY-RESOLUTION-SOLUTION.md)
 - Or: [ANTHROPIC-SDK-FIX.md](ANTHROPIC-SDK-FIX.md)
 
-**...understand Week 3 progress**
-- Read: [DAY-15-LIGHTNING-VALIDATION.md](DAY-15-LIGHTNING-VALIDATION.md)
-- Context: [DAY-9-FINAL-RESULTS.md](DAY-9-FINAL-RESULTS.md) (Day 9 blocker)
+**...understand Week 4-7 progress**
+- Read: [WEEK-4-7-VALIDATION-REPORT.md](WEEK-4-7-VALIDATION-REPORT.md) (🆕 comprehensive report)
+- Context: [DAY-15-LIGHTNING-VALIDATION.md](DAY-15-LIGHTNING-VALIDATION.md) (Week 3 baseline)
 
-**...plan Week 4 work**
-- Read: [WEEK-4-LABEL-FIRST-IMPLEMENTATION.md](WEEK-4-LABEL-FIRST-IMPLEMENTATION.md) (detailed plan)
-- Summary: Week 4 Roadmap in [DAY-15-LIGHTNING-VALIDATION.md](DAY-15-LIGHTNING-VALIDATION.md#week-4-roadmap-label-first-strategy)
+**...plan Week 8 work**
+- Read: [WEEK-4-7-VALIDATION-REPORT.md](WEEK-4-7-VALIDATION-REPORT.md) (see "Next Steps" section)
+- Focus: Contact Email field resolver, Lightning warm-run stability
 
 ---
 
