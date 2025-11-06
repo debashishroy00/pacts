@@ -189,6 +189,12 @@ async def run(state: RunState) -> RunState:
             )
             new_selector = stable_first[0]
 
+            # Week 5: Detect no-progress loop (same selector returned)
+            if new_selector == selector:
+                print(f"[HEAL] ⚠️ No progress: new selector identical to old ({new_selector[:60]})")
+                heal_event["actions"].append("no_progress_same_selector")
+                # Continue anyway to consume heal round and eventually hit max limit
+
             reprobe_strategy = discovered["meta"]["strategy"]
             heal_event["actions"].append(f"reprobe:{reprobe_strategy}")
             heal_event["new_selector"] = new_selector

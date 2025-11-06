@@ -570,13 +570,17 @@ async def ensure_lightning_ready_list(page):
     url = page.url or ""
     if "/lightning/o/" in url and "/list" in url:
         try:
+            print(f"[LIGHTNING_READY] Detected Lightning list page: {url}")
             await page.wait_for_load_state("networkidle", timeout=5000)
             # Ensure toolbar area exists before 'New'
             toolbar = page.locator("[data-aura-class*='forceListViewManagerToolbar'], [data-aura-class*='force-list-view']")
             toolbar_count = await toolbar.count()
             if toolbar_count > 0:
+                print(f"[LIGHTNING_READY] ✅ Toolbar found (count={toolbar_count}), waiting for settle...")
                 await page.wait_for_timeout(500)  # small settle
+            print(f"[LIGHTNING_READY] ✅ Ready for discovery")
             return True
-        except Exception:
+        except Exception as e:
+            print(f"[LIGHTNING_READY] ⚠️ Readiness check failed: {e}")
             return False
     return False

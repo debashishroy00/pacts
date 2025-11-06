@@ -562,7 +562,7 @@ async def discover_selector(browser, intent) -> Optional[Dict[str, Any]]:
 
     # PRIORITY 0: Dialog-scoped discovery for Salesforce App Launcher (immediate fix)
     if within:
-        logger.info(f"[Discovery] ⭐ WITHIN HINT DETECTED: target='{target}' within='{within}'")
+        logger.info(f"[SCOPE] ⭐ WITHIN HINT DETECTED: target='{target}' within='{within}'")
 
         try:
             # Salesforce App Launcher: Use dialog-scoped locators
@@ -572,9 +572,9 @@ async def discover_selector(browser, intent) -> Optional[Dict[str, Any]]:
                 panel = browser.page.get_by_role("dialog", name=re.compile("app.?launcher", re.I))
                 panel_count = await panel.count()
 
-                logger.info(f"[Discovery] 📊 App Launcher dialog count: {panel_count}")
+                logger.info(f"[SCOPE] 📊 App Launcher dialog count: {panel_count}")
                 if panel_count > 0:
-                    logger.info(f"[Discovery] ✅ Found App Launcher dialog, searching within it...")
+                    logger.info(f"[SCOPE] ✅ FOUND container: App Launcher (role=dialog, count={panel_count})")
 
                     # Try robust launcher search first (works across all orgs)
                     target_lower = target.lower()
@@ -604,7 +604,8 @@ async def discover_selector(browser, intent) -> Optional[Dict[str, Any]]:
                     scoped_button = panel.get_by_role("button", name=re.compile(f"^{re.escape(target)}$", re.I))
                     button_count = await scoped_button.count()
 
-                    logger.info(f"[Discovery] 📊 Exact button count: {button_count}")
+                    logger.info(f"[DISCOVERY] using scoped locator (container.locator): panel.get_by_role('button')")
+                    logger.info(f"[GATE] scope=within(App Launcher) count={button_count} unique={button_count == 1}")
                     if button_count > 0:
                         logger.info(f"[Discovery] ✅ Found {button_count} exact button(s) for '{target}' in App Launcher")
                         # Generate selector scoped to dialog
@@ -654,9 +655,9 @@ async def discover_selector(browser, intent) -> Optional[Dict[str, Any]]:
                             }
                         }
 
-                    logger.warning(f"[Discovery] ⚠️ No buttons or links found for '{target}' in App Launcher dialog!")
+                    logger.warning(f"[SCOPE] ⚠️ No buttons or links found for '{target}' in App Launcher dialog!")
                 else:
-                    logger.warning(f"[Discovery] ⚠️ App Launcher dialog NOT FOUND! Panel count: {panel_count}")
+                    logger.warning(f"[SCOPE] ❌ scope-not-found: App Launcher dialog (panel_count={panel_count})")
 
         except Exception as e:
             logger.warning(f"[Discovery] Dialog-scoped discovery failed: {e}, falling back...")
