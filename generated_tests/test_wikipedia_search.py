@@ -2,11 +2,11 @@
 PACTS Generated Test
 ====================
 Requirement ID: wikipedia_search
-Generated: 2025-11-03 18:24:39
+Generated: 2025-11-05 03:02:42
 Verdict: PASS
 
 Discovery Strategies Used:
-  - placeholder
+  - aria_label
 
 """
 
@@ -34,13 +34,13 @@ async def test_wikipedia_search():
         await page.goto("https://en.wikipedia.org")
 
         # Step 1: FILL Search Wikipedia
-        # Selector: #searchInput
-        # Strategy: placeholder, Confidence: 0.88
-        await page.locator("#searchInput").fill("Artificial Intelligence")
+        # Selector: input[aria-label="Search Wikipedia"]
+        # Strategy: aria_label, Confidence: 0.95
+        await page.locator("input[aria-label="Search Wikipedia"]").fill("Artificial Intelligence")
         # Step 2: PRESS Search Wikipedia
-        # Selector: #searchInput
-        # Strategy: placeholder, Confidence: 0.88
-        await page.locator("#searchInput").press("Enter")
+        # Selector: input[aria-label="Search Wikipedia"]
+        # Strategy: aria_label, Confidence: 0.95
+        await page.locator("input[aria-label="Search Wikipedia"]").press("Enter")
         await browser.close()
 
 

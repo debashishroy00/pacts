@@ -2,11 +2,12 @@
 PACTS Generated Test
 ====================
 Requirement ID: salesforce_opportunity_postlogin
-Generated: 2025-11-04 04:09:19
+Generated: 2025-11-05 03:00:55
 Verdict: PASS
 
 Discovery Strategies Used:
-  - label
+  - aria_label
+  - label_stable
   - role_name
   - role_name_disambiguated
 
@@ -40,37 +41,37 @@ async def test_salesforce_opportunity_postlogin():
         # Strategy: role_name, Confidence: 0.95
         await page.locator("role=button[name*="new"i]").click()
         # Step 2: FILL Opportunity Name
-        # Selector: #input-458
-        # Strategy: label, Confidence: 0.92
-        await page.locator("#input-458").fill("Q1 2025 Enterprise Deal")
+        # Selector: input[name="Name"]
+        # Strategy: label_stable, Confidence: 0.93
+        await page.locator("input[name="Name"]").fill("Q1 2025 Enterprise Deal")
         # Step 3: FILL Amount
-        # Selector: #input-443
-        # Strategy: label, Confidence: 0.92
-        await page.locator("#input-443").fill("100000")
+        # Selector: input[name="Amount"]
+        # Strategy: label_stable, Confidence: 0.93
+        await page.locator("input[name="Amount"]").fill("100000")
         # Step 4: CLICK Stage
-        # Selector: #combobox-button-472
-        # Strategy: label, Confidence: 0.92
-        await page.locator("#combobox-button-472").click()
+        # Selector: button[aria-label="Stage"]
+        # Strategy: label_stable, Confidence: 0.93
+        await page.locator("button[aria-label="Stage"]").click()
         # Step 5: SELECT Stage
-        # Selector: #combobox-button-472
-        # Strategy: label, Confidence: 0.92
-        await page.locator("#combobox-button-472").select_option("Prospecting")
+        # Selector: button[aria-label="Stage"]
+        # Strategy: label_stable, Confidence: 0.93
+        await page.locator("button[aria-label="Stage"]").select_option("Prospecting")
         # Step 6: FILL Close Date
-        # Selector: #input-451
-        # Strategy: label, Confidence: 0.92
-        await page.locator("#input-451").fill("12/31/2025")
+        # Selector: input[name="CloseDate"]
+        # Strategy: label_stable, Confidence: 0.93
+        await page.locator("input[name="CloseDate"]").fill("12/31/2025")
         # Step 7: FILL RAI Test Score
-        # Selector: #input-501
-        # Strategy: label, Confidence: 0.92
-        await page.locator("#input-501").fill("75")
+        # Selector: input[name="RAI_Test_Score__c"]
+        # Strategy: label_stable, Confidence: 0.93
+        await page.locator("input[name="RAI_Test_Score__c"]").fill("75")
         # Step 8: CLICK RAI Priority Level
-        # Selector: #combobox-button-515
-        # Strategy: label, Confidence: 0.92
-        await page.locator("#combobox-button-515").click()
+        # Selector: button[aria-label="RAI Priority Level"]
+        # Strategy: aria_label, Confidence: 0.95
+        await page.locator("button[aria-label="RAI Priority Level"]").click()
         # Step 9: SELECT RAI Priority Level
-        # Selector: #combobox-button-515
-        # Strategy: label, Confidence: 0.92
-        await page.locator("#combobox-button-515").select_option("Low")
+        # Selector: button[aria-label="RAI Priority Level"]
+        # Strategy: aria_label, Confidence: 0.95
+        await page.locator("button[aria-label="RAI Priority Level"]").select_option("Low")
         # Step 10: CLICK Save
         # Selector: role=button[name*="save"i] >> nth=0
         # Strategy: role_name_disambiguated, Confidence: 0.95
