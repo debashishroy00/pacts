@@ -185,115 +185,82 @@
 
 ## 📊 Documentation Statistics
 
-**Total Files**: 29 markdown files (+ WEEK-8-PHASE-A-HANDOFF.md)
-**Active (Current)**: 9 files
-**Reference (Historical)**: 12 files
-**Archived (Deprecated)**: 8 files
+**Total Files**: 37 markdown files
+**Active (Root Level)**: 22 files
+**Archived (archive/)**: 15 files
+**Archive Categories**: 6 (week2, sessions, fixes, specs, releases, salesforce)
 
-**Last Update**: 2025-11-06 (Week 8 Phase A validation)
+**Last Update**: 2025-11-06 (Week 8 Phase A validation + cleanup)
 **Next Review**: Week 8 Phase B (after context/planner cohesion)
 
 ---
 
-## 🗂️ Recommended Cleanup Actions
+## 🗂️ Archive Structure
 
-### Files to Archive (move to `docs/archive/`)
+**Location**: `docs/archive/`
 
-1. **Day 9-14 Reports** (superseded by DAY-15):
-   - `DAY-9-RESULTS.md` → `archive/week2/DAY-9-RESULTS.md`
-   - `DAY-11-12-NOTES.md` → `archive/week2/DAY-11-12-NOTES.md`
-   - `DAY-13-14-REPORT.md` → `archive/week2/DAY-13-14-REPORT.md`
-   - `CACHE-VALIDATION-DAY8.md` → `archive/week2/CACHE-VALIDATION-DAY8.md`
+Historical documentation has been moved to the archive for reference. The archive is organized by category:
 
-2. **Session Summaries** (consolidated):
-   - `SESSION-SUMMARY-2025-11-02.md` → `archive/sessions/SESSION-SUMMARY-2025-11-02.md`
-   - `DAY-8-9-COMPLETE-SUMMARY.md` → `archive/sessions/DAY-8-9-COMPLETE-SUMMARY.md`
-   - `V3.0-SESSION-SUMMARY.md` → `archive/sessions/V3.0-SESSION-SUMMARY.md`
+### Week 2 Reports
+- ✅ [DAY-9-RESULTS.md](archive/week2/DAY-9-RESULTS.md) - Day 9 initial SF testing
+- ✅ [DAY-11-12-NOTES.md](archive/week2/DAY-11-12-NOTES.md) - Week 2 mid-sprint notes
+- ✅ [DAY-13-14-REPORT.md](archive/week2/DAY-13-14-REPORT.md) - Week 2 end validation
+- ✅ [CACHE-VALIDATION-DAY8.md](archive/week2/CACHE-VALIDATION-DAY8.md) - Day 8 cache testing
 
-3. **Troubleshooting (resolved)**:
-   - `POETRY-SUCCESS-SUMMARY.md` → `archive/fixes/POETRY-SUCCESS-SUMMARY.md`
-   - `REPO-CLEANUP-SUMMARY.md` → `archive/fixes/REPO-CLEANUP-SUMMARY.md`
+### Session Summaries
+- ✅ [SESSION-SUMMARY-2025-11-02.md](archive/sessions/SESSION-SUMMARY-2025-11-02.md)
+- ✅ [SESSION-SUMMARY-2025-11-03.md](archive/sessions/SESSION-SUMMARY-2025-11-03.md)
+- ✅ [DAY-8-9-COMPLETE-SUMMARY.md](archive/sessions/DAY-8-9-COMPLETE-SUMMARY.md)
+- ✅ [V3.0-SESSION-SUMMARY.md](archive/sessions/V3.0-SESSION-SUMMARY.md)
 
-4. **Old Specs** (superseded):
-   - `PACTS-Phase-1-Final-Blueprint-v3.5.md` → `archive/specs/PACTS-Phase-1-Final-Blueprint-v3.5.md`
-   - `PRODUCTION-VALIDATION-v2.1.md` → `archive/specs/PRODUCTION-VALIDATION-v2.1.md`
-   - `RELEASE-v1.2.md` → `archive/releases/RELEASE-v1.2.md`
-   - `SALESFORCE-FIXES-SUMMARY.md` → `archive/salesforce/SALESFORCE-FIXES-SUMMARY.md`
+### Fix Summaries
+- ✅ [ANTHROPIC-SDK-FIX.md](archive/fixes/ANTHROPIC-SDK-FIX.md) - Anthropic SDK compatibility
+- ✅ [POETRY-SUCCESS-SUMMARY.md](archive/fixes/POETRY-SUCCESS-SUMMARY.md) - Poetry setup
+- ✅ [REPO-CLEANUP-SUMMARY.md](archive/fixes/REPO-CLEANUP-SUMMARY.md) - Repo cleanup notes
 
-### Files to Keep (Active)
+### Old Specifications
+- ✅ [PACTS-Phase-1-Final-Blueprint-v3.5.md](archive/specs/PACTS-Phase-1-Final-Blueprint-v3.5.md)
+- ✅ [PRODUCTION-VALIDATION-v2.1.md](archive/specs/PRODUCTION-VALIDATION-v2.1.md)
 
-**Core Documentation** (keep in `docs/`):
+### Release Notes
+- ✅ [RELEASE-v1.2.md](archive/releases/RELEASE-v1.2.md)
+
+### Salesforce Historical
+- ✅ [SALESFORCE-FIXES-SUMMARY.md](archive/salesforce/SALESFORCE-FIXES-SUMMARY.md)
+
+### Active Documentation (Root Level)
+
+**Core Documentation**:
 - `INDEX.md` (this file)
-- `README.md`
-- `QUICK-START.md`
-- `DOCKER-SETUP.md`
-- `PACTS-TECHNICAL-SPEC-v2.1.md`
-- `PACTS-COMPLETE-SPECIFICATION.md`
-- `PACTS-v3.0-IMPLEMENTATION-PLAN.md`
-- `DAY-15-LIGHTNING-VALIDATION.md` (latest validation)
-- `SALESFORCE-VALIDATION-REPORT.md` (latest validation)
+- `README.md` (project overview)
+- `QUICK-START.md` (setup guide)
+- `DOCKER-SETUP.md` (Docker environment)
+- `PACTS-TECHNICAL-SPEC-v2.1.md` (technical reference)
+- `PACTS-COMPLETE-SPECIFICATION.md` (feature spec)
+- `PACTS-v3.0-IMPLEMENTATION-PLAN.md` (roadmap)
+
+**Current Validation Reports** (Week 3+):
+- `WEEK-8-PHASE-A-HANDOFF.md` (🆕 LATEST - Week 8 Phase A)
+- `WEEK-4-7-VALIDATION-REPORT.md` (Week 4-7 results)
+- `WEEK-4-EXTENDED-VALIDATION.md` (Week 4 extended)
+- `WEEK-4-LABEL-FIRST-IMPLEMENTATION.md` (Week 4 implementation)
+- `DAY-15-LIGHTNING-VALIDATION.md` (Week 3 validation)
+- `SALESFORCE-VALIDATION-REPORT.md` (Week 3 summary)
 - `DAY-9-FINAL-RESULTS.md` (important blocker reference)
-- `SESSION-SUMMARY-2025-11-03.md` (latest session)
 
-**Troubleshooting** (keep in `docs/`):
-- `WINDOWS-DOCKER-NETWORKING-ISSUE.md`
-- `DEPENDENCY-RESOLUTION-SOLUTION.md`
-- `ANTHROPIC-SDK-FIX.md`
+**Implementation Guides**:
+- `EDR.md` (Enhanced Discovery & Reliability)
+- `UNIVERSAL-DISCOVERY-GUIDE.md` (Discovery patterns)
+- `WINDOWS-DOCKER-NETWORKING-ISSUE.md` (Windows Docker fix)
+- `DEPENDENCY-RESOLUTION-SOLUTION.md` (Dependency resolution)
+- `DAY-9-12-ACTION-PLAN.md` (Action plan)
+- `NEXT-STEPS-REALISTIC.md` (Next steps)
 
-**Action Plans** (keep in `docs/`):
-- `DAY-9-12-ACTION-PLAN.md` (partially complete)
-- `NEXT-STEPS-REALISTIC.md` (update for Week 4)
-
----
-
-## 📦 Proposed Archive Structure
-
-```
-docs/
-├── INDEX.md (this file)
-├── README.md
-├── QUICK-START.md
-├── DOCKER-SETUP.md
-├── PACTS-TECHNICAL-SPEC-v2.1.md
-├── PACTS-COMPLETE-SPECIFICATION.md
-├── PACTS-v3.0-IMPLEMENTATION-PLAN.md
-├── DAY-15-LIGHTNING-VALIDATION.md
-├── SALESFORCE-VALIDATION-REPORT.md
-├── DAY-9-FINAL-RESULTS.md
-├── SESSION-SUMMARY-2025-11-03.md
-├── DAY-9-12-ACTION-PLAN.md
-├── NEXT-STEPS-REALISTIC.md
-├── WINDOWS-DOCKER-NETWORKING-ISSUE.md
-├── DEPENDENCY-RESOLUTION-SOLUTION.md
-├── ANTHROPIC-SDK-FIX.md
-│
-└── archive/
-    ├── week2/
-    │   ├── DAY-9-RESULTS.md
-    │   ├── DAY-11-12-NOTES.md
-    │   ├── DAY-13-14-REPORT.md
-    │   └── CACHE-VALIDATION-DAY8.md
-    ├── sessions/
-    │   ├── SESSION-SUMMARY-2025-11-02.md
-    │   ├── DAY-8-9-COMPLETE-SUMMARY.md
-    │   └── V3.0-SESSION-SUMMARY.md
-    ├── fixes/
-    │   ├── POETRY-SUCCESS-SUMMARY.md
-    │   └── REPO-CLEANUP-SUMMARY.md
-    ├── specs/
-    │   ├── PACTS-Phase-1-Final-Blueprint-v3.5.md
-    │   └── PRODUCTION-VALIDATION-v2.1.md
-    ├── releases/
-    │   └── RELEASE-v1.2.md
-    └── salesforce/
-        └── SALESFORCE-FIXES-SUMMARY.md
-```
-
-**Benefits**:
-- Active docs in root (easy to find)
-- Historical docs preserved (searchable)
-- Clear separation (current vs archived)
-- Reduced clutter (14 active vs 28 total)
+**Benefits of Archive Structure**:
+- ✅ Active docs in root (easy to find)
+- ✅ Historical docs preserved (searchable via archive/)
+- ✅ Clear separation (current vs archived)
+- ✅ Reduced clutter (22 active vs 37 total before cleanup)
 
 ---
 
