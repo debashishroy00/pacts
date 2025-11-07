@@ -38,11 +38,6 @@ Just use simple names - PACTS finds the right test automatically:
 pacts test contact --clear-cache
 ```
 
-### Run in visible browser (watch the test)
-```bash
-pacts test contact --headed
-```
-
 ### Slow motion (see what's happening)
 ```bash
 pacts test contact --slow-mo 500
@@ -50,8 +45,10 @@ pacts test contact --slow-mo 500
 
 ### Combine options
 ```bash
-pacts test contact --clear-cache --headed --slow-mo 500
+pacts test contact --clear-cache --slow-mo 500
 ```
+
+**Note**: All tests run in **headless mode** (browser runs in background). This is the recommended way for automated testing.
 
 ## That's It!
 
