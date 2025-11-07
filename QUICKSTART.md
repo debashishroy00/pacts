@@ -52,12 +52,23 @@ pacts test salesforce_create_contact.txt --clear-cache
 pacts test salesforce_create_contact.txt --slow-mo 500
 ```
 
-### Refresh Salesforce session (if expired)
-```bash
-pacts test salesforce_create_contact.txt --refresh-session
+### Salesforce Session Management
+
+PACTS automatically checks if your Salesforce session is valid (less than 2 hours old) before running tests.
+
+**If session is expired**, you'll see:
+```
+[AUTH] WARNING: Salesforce session missing or expired (>2 hours old)
+[AUTH] Please run: python scripts/session_capture_sf.py
+[AUTH] Then re-run your test
 ```
 
-**Note**: PACTS automatically detects expired Salesforce sessions and will prompt you to log in when needed. The `--refresh-session` flag forces a fresh login even if the session file exists.
+**To refresh your session**:
+```bash
+python scripts/session_capture_sf.py
+```
+
+This will open a browser for you to log in to Salesforce (username + password + 2FA). After logging in, create a file called `hitl/session_done.txt` (just type "done" into the file), and your session will be saved for the next 2 hours.
 
 ### Combine options
 ```bash

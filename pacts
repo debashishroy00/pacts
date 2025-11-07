@@ -8,6 +8,20 @@
 if [ "$1" = "test" ] && [ -n "$2" ] && [[ ! "$2" =~ ^-- ]]; then
     # Second arg doesn't start with --, so it's a test name
     TEST_NAME="$2"
+
+    # Check if this is a Salesforce test
+    if [[ "$TEST_NAME" == *"salesforce"* ]]; then
+        # Check session validity before launching Docker
+        python scripts/check_sf_session.py
+        if [ $? -ne 0 ]; then
+            echo ""
+            echo "[PACTS] Salesforce session check failed"
+            echo "[PACTS] Run: python scripts/session_capture_sf.py"
+            echo "[PACTS] Then re-run your test"
+            exit 1
+        fi
+    fi
+
     shift 2  # Remove "test" and test name from args
     docker compose run --rm pacts-runner bash -c "python -m backend.cli.main test --req $TEST_NAME $@"
 else
