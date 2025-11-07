@@ -78,11 +78,18 @@ def create_fuzzy_pattern(text: str) -> re.Pattern:
 
     return re.compile(pattern, re.IGNORECASE)
 
+# Week 8 EDR: Universal Discovery Order (8-tier stability-first hierarchy)
+# Priority: Stable selectors (1-5, 7) → Volatile selectors (6, 8)
 STRATEGIES = [
-    "label",
-    "placeholder",
-    "email_type",  # Week 6: Email field fallback
-    "role_name",
+    "aria_label",         # Tier 1: aria-label, aria-labelledby (✅ Stable)
+    "aria_placeholder",   # Tier 2: aria-placeholder (✅ Stable)
+    "name_attr",          # Tier 3: name attribute (✅ Stable)
+    "placeholder_attr",   # Tier 4: placeholder attribute (✅ Stable)
+    "label_for",          # Tier 5: <label for> proximity (✅ Stable)
+    "role_name",          # Tier 6: Visible text / role-name (⚠ Volatile)
+    "data_attr",          # Tier 7: data-* attribute (✅ Stable)
+    "id_class",           # Tier 8: id / class (⚠ Volatile - last resort)
+    # Legacy strategies (backwards compatibility)
     "relational_css",
     "shadow_pierce",
     "fallback_css",
@@ -153,6 +160,373 @@ async def _is_fillable_element(browser, selector, element, action: str = "fill")
     except Exception:
         return True  # If we can't determine, allow it
 
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Week 8 EDR: Universal Discovery Strategies (8-Tier Hierarchy)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+async def _try_aria_label(browser, intent) -> Optional[Dict[str, Any]]:
+    """
+    Tier 1: aria-label, aria-labelledby (STABLE)
+
+    Highest priority - semantic, accessible, framework-independent.
+    """
+    name = intent.get("element") or intent.get("label") or intent.get("intent")
+    if not name:
+        return None
+
+    action = intent.get("action", "fill")
+
+    try:
+        # Try exact aria-label match
+        selector = f'[aria-label="{name}"]'
+        count = await browser.locator_count(selector)
+
+        if count == 1:
+            el_handle = await browser.page.locator(selector).first.element_handle()
+            if el_handle and await _check_visibility(browser, selector, el_handle):
+                if not await _is_fillable_element(browser, selector, el_handle, action):
+                    return None
+
+                # Refine selector with tag name for better specificity
+                tag_name = await el_handle.evaluate("el => el.tagName.toLowerCase()")
+                refined_selector = f'{tag_name}[aria-label="{name}"]'
+
+                logger.info(f'[DISCOVERY] Tier 1 ✅ aria-label: {refined_selector}')
+                return {
+                    "selector": refined_selector,
+                    "score": 0.98,
+                    "meta": {"strategy": "aria_label", "stable": True, "tier": 1}
+                }
+
+        # Try fuzzy aria-label match
+        pattern = create_fuzzy_pattern(name)
+        all_elements = await browser.page.locator('[aria-label]').all()
+
+        for el in all_elements:
+            aria_val = await el.get_attribute("aria-label")
+            if aria_val and pattern.search(aria_val):
+                if await _check_visibility(browser, "", el):
+                    tag_name = await el.evaluate("el => el.tagName.toLowerCase()")
+                    refined_selector = f'{tag_name}[aria-label="{aria_val}"]'
+
+                    logger.info(f'[DISCOVERY] Tier 1 ✅ aria-label (fuzzy): {refined_selector}')
+                    return {
+                        "selector": refined_selector,
+                        "score": 0.96,
+                        "meta": {"strategy": "aria_label_fuzzy", "stable": True, "tier": 1}
+                    }
+
+    except Exception as e:
+        logger.debug(f"[DISCOVERY] Tier 1 aria-label failed: {e}")
+
+    return None
+
+
+async def _try_aria_placeholder(browser, intent) -> Optional[Dict[str, Any]]:
+    """
+    Tier 2: aria-placeholder (STABLE)
+
+    Semantic placeholder attribute, stable across frameworks.
+    """
+    name = intent.get("element") or intent.get("placeholder") or intent.get("intent")
+    if not name:
+        return None
+
+    try:
+        # Try exact aria-placeholder match
+        selector = f'[aria-placeholder="{name}"]'
+        count = await browser.locator_count(selector)
+
+        if count == 1:
+            el_handle = await browser.page.locator(selector).first.element_handle()
+            if el_handle and await _check_visibility(browser, selector, el_handle):
+                tag_name = await el.evaluate("el => el.tagName.toLowerCase()")
+                refined_selector = f'{tag_name}[aria-placeholder="{name}"]'
+
+                logger.info(f'[DISCOVERY] Tier 2 ✅ aria-placeholder: {refined_selector}')
+                return {
+                    "selector": refined_selector,
+                    "score": 0.96,
+                    "meta": {"strategy": "aria_placeholder", "stable": True, "tier": 2}
+                }
+
+        # Try fuzzy match
+        pattern = create_fuzzy_pattern(name)
+        all_elements = await browser.page.locator('[aria-placeholder]').all()
+
+        for el in all_elements:
+            aria_val = await el.get_attribute("aria-placeholder")
+            if aria_val and pattern.search(aria_val):
+                if await _check_visibility(browser, "", el):
+                    tag_name = await el.evaluate("el => el.tagName.toLowerCase()")
+                    refined_selector = f'{tag_name}[aria-placeholder="{aria_val}"]'
+
+                    logger.info(f'[DISCOVERY] Tier 2 ✅ aria-placeholder (fuzzy): {refined_selector}')
+                    return {
+                        "selector": refined_selector,
+                        "score": 0.94,
+                        "meta": {"strategy": "aria_placeholder_fuzzy", "stable": True, "tier": 2}
+                    }
+
+    except Exception as e:
+        logger.debug(f"[DISCOVERY] Tier 2 aria-placeholder failed: {e}")
+
+    return None
+
+
+async def _try_name_attr(browser, intent) -> Optional[Dict[str, Any]]:
+    """
+    Tier 3: name attribute (STABLE)
+
+    Form field name attribute - stable, semantic, universal.
+    """
+    name = intent.get("element") or intent.get("label") or intent.get("intent")
+    if not name:
+        return None
+
+    normalized_name = normalize_text(name)
+
+    try:
+        # Try exact name attribute match
+        selector = f'[name="{name}"]'
+        count = await browser.locator_count(selector)
+
+        if count == 1:
+            el_handle = await browser.page.locator(selector).first.element_handle()
+            if el_handle and await _check_visibility(browser, selector, el_handle):
+                tag_name = await el.evaluate("el => el.tagName.toLowerCase()")
+                refined_selector = f'{tag_name}[name="{name}"]'
+
+                logger.info(f'[DISCOVERY] Tier 3 ✅ name: {refined_selector}')
+                return {
+                    "selector": refined_selector,
+                    "score": 0.94,
+                    "meta": {"strategy": "name_attr", "stable": True, "tier": 3}
+                }
+
+        # Try fuzzy name matching (handle Name vs name vs NAME)
+        pattern = create_fuzzy_pattern(name)
+        all_elements = await browser.page.locator('[name]').all()
+
+        for el in all_elements:
+            name_val = await el.get_attribute("name")
+            if name_val and pattern.search(name_val):
+                if await _check_visibility(browser, "", el):
+                    tag_name = await el.evaluate("el => el.tagName.toLowerCase()")
+                    refined_selector = f'{tag_name}[name="{name_val}"]'
+
+                    logger.info(f'[DISCOVERY] Tier 3 ✅ name (fuzzy): {refined_selector}')
+                    return {
+                        "selector": refined_selector,
+                        "score": 0.92,
+                        "meta": {"strategy": "name_attr_fuzzy", "stable": True, "tier": 3}
+                    }
+
+    except Exception as e:
+        logger.debug(f"[DISCOVERY] Tier 3 name failed: {e}")
+
+    return None
+
+
+async def _try_placeholder_attr(browser, intent) -> Optional[Dict[str, Any]]:
+    """
+    Tier 4: placeholder attribute (STABLE)
+
+    HTML placeholder attribute - stable, user-visible hint.
+    """
+    name = intent.get("element") or intent.get("placeholder") or intent.get("intent")
+    if not name:
+        return None
+
+    try:
+        # Try exact placeholder match
+        selector = f'[placeholder="{name}"]'
+        count = await browser.locator_count(selector)
+
+        if count == 1:
+            el_handle = await browser.page.locator(selector).first.element_handle()
+            if el_handle and await _check_visibility(browser, selector, el_handle):
+                placeholder_val = await el_handle.get_attribute("placeholder")
+                refined_selector = f'input[placeholder="{placeholder_val}"]'
+
+                logger.info(f'[DISCOVERY] Tier 4 ✅ placeholder: {refined_selector}')
+                return {
+                    "selector": refined_selector,
+                    "score": 0.90,
+                    "meta": {"strategy": "placeholder_attr", "stable": True, "tier": 4}
+                }
+
+        # Try fuzzy placeholder match
+        pattern = create_fuzzy_pattern(name)
+        all_elements = await browser.page.locator('[placeholder]').all()
+
+        for el in all_elements:
+            placeholder_val = await el.get_attribute("placeholder")
+            if placeholder_val and pattern.search(placeholder_val):
+                if await _check_visibility(browser, "", el):
+                    refined_selector = f'input[placeholder="{placeholder_val}"]'
+
+                    logger.info(f'[DISCOVERY] Tier 4 ✅ placeholder (fuzzy): {refined_selector}')
+                    return {
+                        "selector": refined_selector,
+                        "score": 0.88,
+                        "meta": {"strategy": "placeholder_attr_fuzzy", "stable": True, "tier": 4}
+                    }
+
+    except Exception as e:
+        logger.debug(f"[DISCOVERY] Tier 4 placeholder failed: {e}")
+
+    return None
+
+
+async def _try_label_for(browser, intent) -> Optional[Dict[str, Any]]:
+    """
+    Tier 5: <label for> proximity (STABLE)
+
+    HTML label element pointing to input via for attribute.
+    """
+    name = intent.get("element") or intent.get("label") or intent.get("intent")
+    if not name:
+        return None
+
+    try:
+        # Find label elements with matching text
+        pattern = create_fuzzy_pattern(name)
+        all_labels = await browser.page.locator('label').all()
+
+        for label_el in all_labels:
+            label_text = await label_el.inner_text()
+            if label_text and pattern.search(label_text):
+                # Check for 'for' attribute
+                label_for = await label_el.get_attribute("for")
+                if label_for:
+                    # Find input with matching id
+                    input_selector = f'#{label_for}'
+                    input_el = await browser.page.locator(input_selector).element_handle()
+
+                    if input_el and await _check_visibility(browser, input_selector, input_el):
+                        tag_name = await input_el.evaluate("el => el.tagName.toLowerCase()")
+                        refined_selector = f'{tag_name}#{label_for}'
+
+                        logger.info(f'[DISCOVERY] Tier 5 ✅ label[for]: {refined_selector}')
+                        return {
+                            "selector": refined_selector,
+                            "score": 0.86,
+                            "meta": {"strategy": "label_for", "stable": True, "tier": 5}
+                        }
+
+    except Exception as e:
+        logger.debug(f"[DISCOVERY] Tier 5 label[for] failed: {e}")
+
+    return None
+
+
+async def _try_data_attr(browser, intent) -> Optional[Dict[str, Any]]:
+    """
+    Tier 7: data-* attribute (STABLE)
+
+    data-testid, data-test, data-qa, data-cy, data-automation - stable test hooks.
+    """
+    name = intent.get("element") or intent.get("intent")
+    if not name:
+        return None
+
+    normalized_name = normalize_text(name)
+
+    # Common data attribute patterns
+    data_attrs = [
+        "data-testid",
+        "data-test",
+        "data-qa",
+        "data-cy",
+        "data-automation",
+        "data-test-id",
+    ]
+
+    try:
+        pattern = create_fuzzy_pattern(name)
+
+        for attr in data_attrs:
+            all_elements = await browser.page.locator(f'[{attr}]').all()
+
+            for el in all_elements:
+                attr_val = await el.get_attribute(attr)
+                if attr_val and pattern.search(attr_val):
+                    if await _check_visibility(browser, "", el):
+                        tag_name = await el.evaluate("el => el.tagName.toLowerCase()")
+                        refined_selector = f'{tag_name}[{attr}="{attr_val}"]'
+
+                        logger.info(f'[DISCOVERY] Tier 7 ✅ data-attr: {refined_selector}')
+                        return {
+                            "selector": refined_selector,
+                            "score": 0.80,
+                            "meta": {"strategy": "data_attr", "stable": True, "tier": 7}
+                        }
+
+    except Exception as e:
+        logger.debug(f"[DISCOVERY] Tier 7 data-attr failed: {e}")
+
+    return None
+
+
+async def _try_id_class(browser, intent) -> Optional[Dict[str, Any]]:
+    """
+    Tier 8: id / class (VOLATILE - Last Resort)
+
+    Framework-generated IDs and classes - volatile, single-use only.
+    """
+    name = intent.get("element") or intent.get("intent")
+    if not name:
+        return None
+
+    try:
+        pattern = create_fuzzy_pattern(name)
+
+        # Try ID match (last resort - often volatile)
+        all_elements_with_id = await browser.page.locator('[id]').all()
+
+        for el in all_elements_with_id:
+            el_id = await el.get_attribute("id")
+            if el_id and pattern.search(el_id):
+                if await _check_visibility(browser, "", el):
+                    refined_selector = f'#{el_id}'
+
+                    logger.warning(f'[DISCOVERY] Tier 8 ⚠ id (VOLATILE): {refined_selector}')
+                    return {
+                        "selector": refined_selector,
+                        "score": 0.70,
+                        "meta": {"strategy": "id_class", "stable": False, "tier": 8, "volatile": True}
+                    }
+
+        # Try class match (last resort - often framework-generated)
+        all_elements_with_class = await browser.page.locator('[class]').all()
+
+        for el in all_elements_with_class:
+            class_val = await el.get_attribute("class")
+            if class_val and pattern.search(class_val):
+                if await _check_visibility(browser, "", el):
+                    # Use first class name
+                    first_class = class_val.split()[0] if class_val else None
+                    if first_class:
+                        refined_selector = f'.{first_class}'
+
+                        logger.warning(f'[DISCOVERY] Tier 8 ⚠ class (VOLATILE): {refined_selector}')
+                        return {
+                            "selector": refined_selector,
+                            "score": 0.65,
+                            "meta": {"strategy": "id_class", "stable": False, "tier": 8, "volatile": True}
+                        }
+
+    except Exception as e:
+        logger.debug(f"[DISCOVERY] Tier 8 id/class failed: {e}")
+
+    return None
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Legacy Week 4-7 Strategies (Backwards Compatibility)
+# ═══════════════════════════════════════════════════════════════════════════════
 
 async def _try_label(browser, intent) -> Optional[Dict[str, Any]]:
     name = intent.get("element") or intent.get("label") or intent.get("intent")
@@ -557,11 +931,21 @@ async def _try_shadow_pierce(browser, intent) -> Optional[Dict[str, Any]]:
 async def _try_fallback_css(browser, intent) -> Optional[Dict[str, Any]]:
     return None
 
+# Week 8 EDR: Universal Discovery Strategy Function Mapping
 STRATEGY_FUNCS = {
+    # Universal 8-Tier Hierarchy
+    "aria_label": _try_aria_label,
+    "aria_placeholder": _try_aria_placeholder,
+    "name_attr": _try_name_attr,
+    "placeholder_attr": _try_placeholder_attr,
+    "label_for": _try_label_for,
+    "role_name": _try_role_name,
+    "data_attr": _try_data_attr,
+    "id_class": _try_id_class,
+    # Legacy strategies (backwards compatibility)
     "label": _try_label,
     "placeholder": _try_placeholder,
-    "email_type": _try_email_type,  # Week 6: Email field fallback
-    "role_name": _try_role_name,
+    "email_type": _try_email_type,
     "relational_css": _try_relational_css,
     "shadow_pierce": _try_shadow_pierce,
     "fallback_css": _try_fallback_css,

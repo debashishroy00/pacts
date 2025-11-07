@@ -176,10 +176,14 @@ class SelectorCache(BaseStorage):
         """
         Save selector to both caches.
 
+        Week 8 EDR: STABLE-ONLY caching policy enforced.
+        Volatile selectors (role+name, id, class) are rejected to prevent cache pollution.
+
         Write Pattern:
-        1. Save to Postgres (persistent, source of truth)
-        2. Save to Redis (fast cache)
-        3. Store DOM hash for drift detection
+        1. Reject if stable=False (Week 8 EDR policy)
+        2. Save to Postgres (persistent, source of truth)
+        3. Save to Redis (fast cache)
+        4. Store DOM hash for drift detection
 
         Args:
             url: Page URL
@@ -188,8 +192,17 @@ class SelectorCache(BaseStorage):
             confidence: Confidence score (0.0-1.0)
             strategy: Discovery strategy used
             dom_hash: DOM hash for drift detection
-            stable: Week 4 - Whether selector uses stable attributes (aria-label/name/placeholder)
+            stable: Week 8 - Whether selector uses stable attributes (aria-label/name/placeholder/data-*)
         """
+        # Week 8 EDR: Enforce stable-only caching policy
+        if not stable:
+            logger.warning(
+                f"[CACHE] ⏩ SKIPPED (VOLATILE): {element} → {selector[:50]} "
+                f"(strategy: {strategy}, stable={stable})"
+            )
+            await self._record_metric("volatile_selector_skipped")
+            return  # Do not cache volatile selectors
+
         url_pattern = self._normalize_url(url)
 
         # Save to Postgres (upsert)
@@ -222,7 +235,8 @@ class SelectorCache(BaseStorage):
             await self._save_dom_hash(url, element, dom_hash)
 
         logger.info(
-            f"[CACHE] ✅ Saved selector: {element} → {selector[:50]} (strategy: {strategy})"
+            f"[CACHE] 💾 SAVED (STABLE): {element} → {selector[:50]} "
+            f"(strategy: {strategy}, stable=✓)"
         )
 
     async def invalidate_selector(self, url: str, element: str):

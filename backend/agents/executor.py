@@ -6,11 +6,88 @@ from ..graph.state import RunState, Failure
 from ..runtime.browser_manager import BrowserManager
 from ..runtime.policies import five_point_gate
 from ..runtime import salesforce_helpers as sf
+from ..runtime import runtime_profile  # Week 8 EDR: Universal profile detection
 from ..telemetry.tracing import traced
 from ..mcp.mcp_client import USE_MCP
 from .execution_helpers import press_with_fallbacks, fill_with_activator, handle_spa_navigation
 
 logger = logging.getLogger(__name__)
+
+
+async def _universal_readiness_gate(browser, selector: str) -> bool:
+    """
+    Week 8 EDR: Universal 3-Stage Readiness Gate
+
+    Ensures element is ready for interaction across ALL web applications (static + dynamic).
+
+    Stage 1: DOM Idle - Wait for network/animation to settle
+    Stage 2: Element Ready - Ensure element is visible and enabled
+    Stage 3: App Ready Hook - Optional window.__APP_READY__() callback (if defined by app)
+
+    Returns:
+        bool: True if all stages pass, False if any stage fails
+    """
+    page = browser.page
+    url = page.url or ""
+
+    # Get profile-aware configuration
+    profile = runtime_profile.get_profile(url)
+    config = runtime_profile.get_config(profile)
+
+    try:
+        # Stage 1: DOM Idle (networkidle or domcontentloaded)
+        logger.debug(f"[READINESS] Stage 1: Waiting for DOM idle ({config.network_idle_timeout}ms)")
+        try:
+            await page.wait_for_load_state("networkidle", timeout=config.network_idle_timeout)
+            logger.debug(f"[READINESS] Stage 1 ✓: DOM idle (networkidle)")
+        except Exception:
+            # Fallback to domcontentloaded for faster static sites
+            try:
+                await page.wait_for_load_state("domcontentloaded", timeout=2000)
+                logger.debug(f"[READINESS] Stage 1 ✓: DOM idle (domcontentloaded fallback)")
+            except Exception as e:
+                logger.warning(f"[READINESS] Stage 1 ⚠: DOM idle timeout ({e})")
+
+        # Stage 2: Element Ready (visible + enabled)
+        logger.debug(f"[READINESS] Stage 2: Checking element visibility ({selector[:50]})")
+        try:
+            locator = page.locator(selector).first
+            await locator.wait_for(state="visible", timeout=config.element_visible_timeout)
+
+            # Check if element is enabled (for buttons/inputs)
+            is_enabled = await locator.is_enabled()
+            if not is_enabled:
+                logger.warning(f"[READINESS] Stage 2 ⚠: Element exists but disabled")
+                return False
+
+            logger.debug(f"[READINESS] Stage 2 ✓: Element visible and enabled")
+        except Exception as e:
+            logger.warning(f"[READINESS] Stage 2 ❌: Element not ready ({e})")
+            return False
+
+        # Stage 3: App Ready Hook (optional - only if defined by app)
+        logger.debug(f"[READINESS] Stage 3: Checking app-specific readiness hook")
+        try:
+            has_hook = await page.evaluate("typeof window.__APP_READY__ === 'function'")
+            if has_hook:
+                await page.evaluate("window.__APP_READY__()")
+                logger.debug(f"[READINESS] Stage 3 ✓: App ready hook executed")
+            else:
+                logger.debug(f"[READINESS] Stage 3 ✓: No app hook defined (skipped)")
+        except Exception as e:
+            logger.debug(f"[READINESS] Stage 3 ⚠: App hook failed ({e}) - continuing")
+
+        # Post-action settle time (profile-dependent)
+        if config.post_action_settle > 0:
+            logger.debug(f"[READINESS] Settling for {config.post_action_settle}ms (profile: {profile})")
+            await page.wait_for_timeout(config.post_action_settle)
+
+        logger.info(f"[READINESS] ✅ ALL STAGES PASSED (profile: {profile})")
+        return True
+
+    except Exception as e:
+        logger.error(f"[READINESS] ❌ FAILED: {e}")
+        return False
 
 
 async def _perform_action(browser, action: str, selector: str, value: Optional[str] = None) -> bool:
@@ -367,9 +444,13 @@ async def run(state: RunState) -> RunState:
                 pass
             return state
 
-    # Week 6: Lightning readiness check before validation (ensures toolbar ready on cache hits)
-    if "lightning.force.com" in browser.page.url:
-        await sf.ensure_lightning_ready_list(browser.page)
+    # Week 8 EDR: Universal 3-stage readiness gate (replaces SF-specific check)
+    # Applies to ALL apps (static + dynamic), profile-aware timeouts
+    readiness_ok = await _universal_readiness_gate(browser, selector)
+    if not readiness_ok:
+        logger.warning(f"[EXEC] Readiness gate failed for {selector[:50]}")
+        state.failure = Failure.timeout
+        return state
 
     # Normal path: Validate element with five_point gate
     failure, el = await _validate_step(browser, step, heal_round=state.heal_round)
