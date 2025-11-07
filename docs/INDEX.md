@@ -1,6 +1,6 @@
 # PACTS v3.0 - Documentation Index
 
-**Last Updated**: 2025-11-05
+**Last Updated**: 2025-11-06 (Week 8 Phase A Complete)
 **Purpose**: Master index for all PACTS documentation
 
 ---
@@ -49,16 +49,17 @@
 
 ## ✅ Validation & Testing Reports
 
-### Salesforce Lightning Testing (Week 4-7 - Current)
+### Salesforce Lightning Testing (Week 8 - Current)
 
 | File | Purpose | Status | Key Findings |
 |------|---------|--------|--------------|
-| **[WEEK-4-7-VALIDATION-REPORT.md](WEEK-4-7-VALIDATION-REPORT.md)** | 🆕 Week 4-7 comprehensive validation | ✅ **LATEST** | Weeks 4-6 PRODUCTION READY |
+| **[WEEK-8-PHASE-A-HANDOFF.md](WEEK-8-PHASE-A-HANDOFF.md)** | 🆕 Week 8 Phase A - EDR validation | ✅ **LATEST** | ✅ 100% PASS - 29/29 steps, 0 heals |
+| **[WEEK-4-7-VALIDATION-REPORT.md](WEEK-4-7-VALIDATION-REPORT.md)** | Week 4-7 comprehensive validation | ✅ Reference | Weeks 4-6 PRODUCTION READY |
 | **[DAY-15-LIGHTNING-VALIDATION.md](DAY-15-LIGHTNING-VALIDATION.md)** | Week 3 validation | ✅ Reference | 100% PASS (Phase 2a bypass) |
 | **[SALESFORCE-VALIDATION-REPORT.md](SALESFORCE-VALIDATION-REPORT.md)** | Week 3 standalone summary | ✅ Reference | Session-scoped cache + bypass |
 | **[DAY-9-FINAL-RESULTS.md](DAY-9-FINAL-RESULTS.md)** | Day 9 Lightning blocker findings | ✅ Reference | "New" button timeout identified |
 
-**Latest Results**: [WEEK-4-7-VALIDATION-REPORT.md](WEEK-4-7-VALIDATION-REPORT.md) - **Weeks 4-6 PRODUCTION READY** (label-first discovery, 100% cache hits, 0 heals)
+**Latest Results**: [WEEK-8-PHASE-A-HANDOFF.md](WEEK-8-PHASE-A-HANDOFF.md) - **Phase A VALIDATED & PRODUCTION READY** (8-tier discovery, 100% stable selectors, 0 heals, containerized runner)
 
 ### Historical Test Reports (Week 2)
 
@@ -74,11 +75,12 @@
 
 ## 📋 Implementation Plans
 
-### Active Plans (Week 8 - Next)
+### Active Plans (Week 8 - Current)
 
 | File | Purpose | Status | Timeline |
 |------|---------|--------|----------|
-| **[WEEK-4-7-VALIDATION-REPORT.md](WEEK-4-7-VALIDATION-REPORT.md)** | 🆕 Week 4-7 results + Week 8 roadmap | ✅ **Current** | Week 8 (Contact Email resolver) |
+| **[WEEK-8-PHASE-A-HANDOFF.md](WEEK-8-PHASE-A-HANDOFF.md)** | 🆕 Week 8 Phase A - EDR validation | ✅ **VALIDATED** | ✅ 100% PASS - Production Ready |
+| **[WEEK-4-7-VALIDATION-REPORT.md](WEEK-4-7-VALIDATION-REPORT.md)** | Week 4-7 results + roadmap | ✅ Reference | Week 8 baseline |
 
 ### Completed Plans (Week 4-7)
 
@@ -155,8 +157,9 @@
 - Then: [PACTS-COMPLETE-SPECIFICATION.md](PACTS-COMPLETE-SPECIFICATION.md)
 
 **...see latest test results**
-- Read: [WEEK-4-7-VALIDATION-REPORT.md](WEEK-4-7-VALIDATION-REPORT.md) (🆕 LATEST)
-- Previous: [DAY-15-LIGHTNING-VALIDATION.md](DAY-15-LIGHTNING-VALIDATION.md)
+- Read: [WEEK-8-PHASE-A-HANDOFF.md](WEEK-8-PHASE-A-HANDOFF.md) (🆕 LATEST - Week 8 Phase A)
+- Previous: [WEEK-4-7-VALIDATION-REPORT.md](WEEK-4-7-VALIDATION-REPORT.md) (Week 4-7)
+- Historical: [DAY-15-LIGHTNING-VALIDATION.md](DAY-15-LIGHTNING-VALIDATION.md) (Week 3)
 
 **...fix a Docker issue**
 - Read: [WINDOWS-DOCKER-NETWORKING-ISSUE.md](WINDOWS-DOCKER-NETWORKING-ISSUE.md)
@@ -166,25 +169,29 @@
 - Read: [DEPENDENCY-RESOLUTION-SOLUTION.md](DEPENDENCY-RESOLUTION-SOLUTION.md)
 - Or: [ANTHROPIC-SDK-FIX.md](ANTHROPIC-SDK-FIX.md)
 
+**...understand Week 8 Phase A (EDR)**
+- Read: [WEEK-8-PHASE-A-HANDOFF.md](WEEK-8-PHASE-A-HANDOFF.md) (🆕 comprehensive validation)
+- Focus: 8-tier discovery, runtime profiles, stable-only caching, universal readiness
+
 **...understand Week 4-7 progress**
-- Read: [WEEK-4-7-VALIDATION-REPORT.md](WEEK-4-7-VALIDATION-REPORT.md) (🆕 comprehensive report)
+- Read: [WEEK-4-7-VALIDATION-REPORT.md](WEEK-4-7-VALIDATION-REPORT.md) (comprehensive report)
 - Context: [DAY-15-LIGHTNING-VALIDATION.md](DAY-15-LIGHTNING-VALIDATION.md) (Week 3 baseline)
 
-**...plan Week 8 work**
-- Read: [WEEK-4-7-VALIDATION-REPORT.md](WEEK-4-7-VALIDATION-REPORT.md) (see "Next Steps" section)
-- Focus: Contact Email field resolver, Lightning warm-run stability
+**...plan Phase B work**
+- Read: [WEEK-8-PHASE-A-HANDOFF.md](WEEK-8-PHASE-A-HANDOFF.md) (see "Phase B Preview" section)
+- Focus: Context awareness, planner cohesion, intelligent defaults
 
 ---
 
 ## 📊 Documentation Statistics
 
-**Total Files**: 28 markdown files
-**Active (Current)**: 8 files
+**Total Files**: 29 markdown files (+ WEEK-8-PHASE-A-HANDOFF.md)
+**Active (Current)**: 9 files
 **Reference (Historical)**: 12 files
 **Archived (Deprecated)**: 8 files
 
-**Last Cleanup**: 2025-11-03
-**Next Review**: Week 4 (after label-first implementation)
+**Last Update**: 2025-11-06 (Week 8 Phase A validation)
+**Next Review**: Week 8 Phase B (after context/planner cohesion)
 
 ---
 

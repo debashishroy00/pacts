@@ -7,7 +7,15 @@ The world's first autonomous testing system with episodic memory and real-time o
 
 ---
 
-## 🎉 v3.0 Achievements (2025-11-03 - Week 2 Complete)
+## 🎉 v3.0 Achievements (2025-11-06 - Week 8 Phase A Complete)
+
+**🎯 Week 8 Phase A: Enhanced Discovery & Reliability (EDR)**
+- **8-Tier Discovery Hierarchy**: aria-label → aria-placeholder → name → placeholder → label-for → role-name → data-attr → id-class
+- **Runtime Profile Detection**: STATIC vs DYNAMIC (SPA) auto-detection for optimized wait strategies
+- **Stable-Only Caching**: Only cache stable=True selectors, skip volatile UI elements
+- **Universal 3-Stage Readiness Gate**: dom-idle → element-visible → app-ready-hook
+- **Structured Logging (ulog)**: [PROFILE], [DISCOVERY], [CACHE], [READINESS], [RESULT] tags for observability
+- **100% Validation Success**: 4/4 tests, 29/29 steps, 0 heals (Wikipedia + 3 Salesforce tests)
 
 **🚀 Dual-Layer Selector Cache (Days 8-9)**
 - **100-500x speedup** on cache hits (1-5ms vs 500ms full discovery)
@@ -27,14 +35,20 @@ The world's first autonomous testing system with episodic memory and real-time o
 - **100% capture rate**: 2/2 runs recorded, 6/6 artifacts linked
 - **Production telemetry** ready for Grafana/Prometheus
 
-**Key Metrics (Week 2):**
+**Key Metrics (Week 8 Phase A):**
+- **Discovery Success Rate**: 100% (29/29 steps, all tiers working) ✅
+- **Stable Selector Ratio**: 100% (all selectors marked stable=True) ✅
 - **Cache Hit Rate**: 100% (warm), 66.7% (overall including cold start) ✅
-- **Test Success Rate**: 100% (all validation tests PASS) ✅
+- **Test Success Rate**: 100% (4/4 tests PASS, 0 heals) ✅
 - **Discovery Speedup**: 100-500x on cache hits ✅
-- **Heal Rounds**: 0 average (zero healing needed) ✅
-- **Zero Regressions**: All legacy tests still passing ✅
+- **Zero Regressions**: All legacy tests + new validations passing ✅
 
 **Production-Ready Systems:**
+- ✅ 8-Tier Discovery (validated across Wikipedia + Salesforce Lightning)
+- ✅ Runtime Profile Detection (STATIC/DYNAMIC auto-detection)
+- ✅ Stable-Only Caching (zero volatile selectors cached)
+- ✅ Universal Readiness Gates (dom-idle + element-visible + app-ready)
+- ✅ Structured Logging (ulog with 5 log types)
 - ✅ Cache System (validated over 5 loops)
 - ✅ HealHistory (code ready, awaits healing event)
 - ✅ RunStorage (100% capture rate)
