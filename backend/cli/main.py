@@ -453,13 +453,18 @@ def display_execution_results(result: RunState):
 
     verdict = result.verdict or "unknown"
 
-    # Verdict with color
+    # Verdict with color + structured logging for metrics
+    from backend.utils import ulog
+
     if verdict == "pass":
         print_success(f"Verdict: PASS")
+        ulog.result(passed=True)
     elif verdict == "partial":
         print_warning(f"Verdict: PARTIAL")
+        ulog.result(passed=False)  # Partial = not fully passed
     else:
         print_error(f"Verdict: FAIL")
+        ulog.result(passed=False)
 
     print()
     print(f"  Steps Executed: {result.step_idx}")

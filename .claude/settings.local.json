@@ -1,10 +1,24 @@
 {
   "permissions": {
     "allow": [
-      "Bash(cat runs/wikipedia/wiki_test1.log)",
-      "Bash(docker-compose exec -T postgres psql -U pacts -d pacts -c \"SELECT 1 as test;\")",
-      "Bash(git add docs/WEEK-8-PHASE-A-HANDOFF.md)",
-      "Bash(git commit -m \"docs: Week 8 Phase A handoff document (implementation complete)\")"
+      "Bash(docker compose run --rm pacts-runner python -m backend.cli.main --help)",
+      "Bash(docker compose run --rm pacts-runner python -m backend.cli.main list)",
+      "Bash(docker compose run --rm pacts-runner bash -c 'python -m backend.cli.main test --req wikipedia_search 2>&1 | tee /app/runs/wikipedia/run1.log')",
+      "Bash(docker compose run --rm pacts-runner bash -c 'python -m backend.cli.main test --req wikipedia_search 2>&1 | tee /app/runs/wikipedia/run2.log')",
+      "Bash(docker compose run --rm pacts-runner bash -c 'python -m backend.cli.main test --req wikipedia_search 2>&1 | tee /app/runs/wikipedia/run3.log')",
+      "Bash(docker compose run --rm pacts-runner bash -c 'python -m backend.cli.main test --req salesforce_opportunity_postlogin 2>&1 | tee /app/runs/salesforce/run1.log')",
+      "Bash(python metrics_collector.py)",
+      "Bash(cat runs/salesforce/run1.log)",
+      "Bash(docker compose run --rm pacts-runner bash -c 'python -m backend.cli.main test --req wikipedia_search 2>&1 | tee /app/runs/wikipedia/runFIX1.log')",
+      "Bash(docker compose run --rm pacts-runner bash -c 'python -m backend.cli.main test --req salesforce_opportunity_postlogin 2>&1 | tee /app/runs/salesforce/runFIX1.log')",
+      "Bash(python scripts/session_capture_sf.py)",
+      "Bash(docker compose run --rm pacts-runner bash -c 'python -m backend.cli.main test --req salesforce_opportunity_postlogin 2>&1 | tee /app/runs/salesforce/runFIX2.log')",
+      "Bash(docker compose exec -T postgres psql -U pacts -d pacts -c \"DELETE FROM selector_cache WHERE element_name IN (''Opportunity Name'', ''Close Date'', ''Stage'', ''Amount'');\")",
+      "Bash(docker compose run --rm pacts-runner bash -c 'python -m backend.cli.main test --req salesforce_opportunity_postlogin 2>&1 | tee /app/runs/salesforce/runFIX3.log')",
+      "Bash(docker compose exec -T redis redis-cli FLUSHALL)",
+      "Bash(docker compose run --rm pacts-runner bash -c 'python -m backend.cli.main test --req salesforce_opportunity_postlogin 2>&1 | tee /app/runs/salesforce/runFINAL.log')",
+      "Bash(docker compose run --rm pacts-runner bash -c 'python -m backend.cli.main test --req salesforce_create_contact 2>&1 | tee /app/runs/salesforce/contact_run1.log')",
+      "Bash(docker compose run --rm pacts-runner bash -c 'python -m backend.cli.main test --req salesforce_create_records 2>&1 | tee /app/runs/salesforce/account_run1.log')"
     ],
     "deny": [],
     "ask": []

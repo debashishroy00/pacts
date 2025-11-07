@@ -1,0 +1,53 @@
+{
+  "generated_at": "2025-11-07T04:12:01.672566Z",
+  "overall": {
+    "cold_run_pass_rate_pct": 0.0,
+    "stable_selector_ratio_pct": 0.0,
+    "avg_heal_rounds_per_run": 0.88,
+    "profiles_seen": {
+      "STATIC": 10,
+      "DYNAMIC": 17
+    },
+    "readiness_events": 92,
+    "num_runs": 8
+  },
+  "per_app": {
+    "github": {
+      "profiles": {},
+      "num_runs": 0
+    },
+    "reacttodo": {
+      "profiles": {},
+      "num_runs": 0
+    },
+    "salesforce": {
+      "stable_selectors": 0,
+      "volatile_selectors": 0,
+      "cache_saved": 9,
+      "cache_skipped": 2,
+      "heal_events": 7,
+      "readiness_events": 68,
+      "passes": 0,
+      "fails": 0,
+      "profiles": {
+        "STATIC": 2,
+        "DYNAMIC": 17
+      },
+      "num_runs": 2
+    },
+    "wikipedia": {
+      "stable_selectors": 0,
+      "volatile_selectors": 0,
+      "cache_saved": 2,
+      "cache_skipped": 0,
+      "heal_events": 0,
+      "readiness_events": 24,
+      "passes": 0,
+      "fails": 0,
+      "profiles": {
+        "STATIC": 8
+      },
+      "num_runs": 6
+    }
+  }
+}

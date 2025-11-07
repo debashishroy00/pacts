@@ -12,8 +12,8 @@ CACHE_SKIPPED_RE = re.compile(r"\[CACHE\].*?SKIPPED")
 HEAL_RE = re.compile(r"\[HEAL\]")
 PROFILE_RE = re.compile(r"\[PROFILE\].*?using=(?P<profile>STATIC|DYNAMIC)")
 READINESS_RE = re.compile(r"\[READINESS\]")
-PASS_RE = re.compile(r"\[RESULT\]\s*PASS")
-FAIL_RE = re.compile(r"\[RESULT\]\s*FAIL")
+PASS_RE = re.compile(r"\[RESULT\]\s*status=PASS")
+FAIL_RE = re.compile(r"\[RESULT\]\s*status=FAIL")
 
 def parse_log(path):
     stats = {

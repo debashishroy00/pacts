@@ -2,12 +2,13 @@
 PACTS Generated Test
 ====================
 Requirement ID: salesforce_opportunity_postlogin
-Generated: 2025-11-05 03:00:55
+Generated: 2025-11-07 04:26:28
 Verdict: PASS
 
 Discovery Strategies Used:
-  - aria_label
-  - label_stable
+  - aria_label_fuzzy
+  - label_for
+  - name_attr_fuzzy
   - role_name
   - role_name_disambiguated
 
@@ -41,36 +42,36 @@ async def test_salesforce_opportunity_postlogin():
         # Strategy: role_name, Confidence: 0.95
         await page.locator("role=button[name*="new"i]").click()
         # Step 2: FILL Opportunity Name
-        # Selector: input[name="Name"]
-        # Strategy: label_stable, Confidence: 0.93
-        await page.locator("input[name="Name"]").fill("Q1 2025 Enterprise Deal")
+        # Selector: input#input-577
+        # Strategy: label_for, Confidence: 0.86
+        await page.locator("input#input-577").fill("Q1 2025 Enterprise Deal")
         # Step 3: FILL Amount
-        # Selector: input[name="Amount"]
-        # Strategy: label_stable, Confidence: 0.93
-        await page.locator("input[name="Amount"]").fill("100000")
+        # Selector: input#input-562
+        # Strategy: label_for, Confidence: 0.86
+        await page.locator("input#input-562").fill("100000")
         # Step 4: CLICK Stage
         # Selector: button[aria-label="Stage"]
-        # Strategy: label_stable, Confidence: 0.93
+        # Strategy: aria_label_fuzzy, Confidence: 0.96
         await page.locator("button[aria-label="Stage"]").click()
         # Step 5: SELECT Stage
         # Selector: button[aria-label="Stage"]
-        # Strategy: label_stable, Confidence: 0.93
+        # Strategy: aria_label_fuzzy, Confidence: 0.96
         await page.locator("button[aria-label="Stage"]").select_option("Prospecting")
         # Step 6: FILL Close Date
         # Selector: input[name="CloseDate"]
-        # Strategy: label_stable, Confidence: 0.93
+        # Strategy: name_attr_fuzzy, Confidence: 0.92
         await page.locator("input[name="CloseDate"]").fill("12/31/2025")
         # Step 7: FILL RAI Test Score
-        # Selector: input[name="RAI_Test_Score__c"]
-        # Strategy: label_stable, Confidence: 0.93
-        await page.locator("input[name="RAI_Test_Score__c"]").fill("75")
+        # Selector: input#input-620
+        # Strategy: label_for, Confidence: 0.86
+        await page.locator("input#input-620").fill("75")
         # Step 8: CLICK RAI Priority Level
         # Selector: button[aria-label="RAI Priority Level"]
-        # Strategy: aria_label, Confidence: 0.95
+        # Strategy: aria_label_fuzzy, Confidence: 0.96
         await page.locator("button[aria-label="RAI Priority Level"]").click()
         # Step 9: SELECT RAI Priority Level
         # Selector: button[aria-label="RAI Priority Level"]
-        # Strategy: aria_label, Confidence: 0.95
+        # Strategy: aria_label_fuzzy, Confidence: 0.96
         await page.locator("button[aria-label="RAI Priority Level"]").select_option("Low")
         # Step 10: CLICK Save
         # Selector: role=button[name*="save"i] >> nth=0

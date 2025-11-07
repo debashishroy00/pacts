@@ -51,12 +51,13 @@ def create_fuzzy_pattern(text: str) -> re.Pattern:
 
     Matches text with:
     - Optional whitespace
-    - Optional common suffixes
+    - Optional common suffixes (button, field, input, etc.)
     - Optional extra words (for "Zip Code" → "Zip/Postal Code")
+    - Rejects UI control suffixes (width, height, column, etc.)
     - Case insensitive
 
     Example: "Login" matches "Login", "login", "  Login  ", "Login Button"
-    Example: "Zip Code" matches "Zip/Postal Code", "Zip Code", "zip code"
+    Example: "Close Date" matches "Close Date Field" but NOT "Close Date column width"
     """
     normalized = normalize_text(text)
 
@@ -66,16 +67,19 @@ def create_fuzzy_pattern(text: str) -> re.Pattern:
     # Split normalized into words to allow partial matching
     words = normalized.split()
 
+    # Allowed suffixes for form fields (whitelist approach)
+    ALLOWED_SUFFIXES = r'(?:button|icon|link|field|input|dropdown|menu|box|selector)?'
+
     if len(words) > 1:
         # Multi-word target: allow extra words between
         # "zip code" matches "zip postal code" or "zip/postal code"
         word_pattern = r'\s*[/\-]?\s*'.join(re.escape(w) for w in words)
         # Allow optional extra words between: "zip.*code"
         partial_pattern = r'\s*'.join(re.escape(w) + r'(?:\s*[/\-]?\s*\w+)?' for w in words[:-1]) + r'\s*' + re.escape(words[-1])
-        pattern = rf'\s*(?:{word_pattern}|{partial_pattern})\s*(?:button|icon|link|field|input|dropdown|menu)?'
+        pattern = rf'\s*(?:{word_pattern}|{partial_pattern})\s*{ALLOWED_SUFFIXES}$'
     else:
         # Single word: simpler pattern
-        pattern = rf'\s*{escaped}\s*(?:button|icon|link|field|input|dropdown|menu)?'
+        pattern = rf'\s*{escaped}\s*{ALLOWED_SUFFIXES}$'
 
     return re.compile(pattern, re.IGNORECASE)
 
@@ -136,7 +140,7 @@ async def _is_fillable_element(browser, selector, element, action: str = "fill")
     """
     Check if element is appropriate for the requested action.
 
-    For fill actions: prefer input/textarea, skip select/button
+    For fill actions: prefer input/textarea, skip select/button/slider/color/range
     For click actions: any element is fine
     """
     if action != "fill":
@@ -145,16 +149,27 @@ async def _is_fillable_element(browser, selector, element, action: str = "fill")
     try:
         if element:
             tag_name = await element.evaluate("el => el.tagName.toLowerCase()")
+            input_type = await element.evaluate("el => el.type ? el.type.toLowerCase() : null")
         else:
             el = await browser.query(selector)
             if not el:
                 return False
             tag_name = await el.evaluate("el => el.tagName.toLowerCase()")
+            input_type = await el.evaluate("el => el.type ? el.type.toLowerCase() : null")
 
-        # For fill actions, skip select dropdowns and buttons
-        # These need click, not fill
+        # For fill actions, skip non-fillable elements
         if tag_name in ['select', 'button']:
             logger.debug(f"[Discovery] Skipping {tag_name} element for fill action: {selector}")
+            return False
+
+        # Skip input controls that aren't text-fillable
+        # range = sliders (column width adjusters, volume controls)
+        # color = color pickers
+        # file = file upload buttons
+        # checkbox/radio = need click, not fill
+        NON_FILLABLE_INPUT_TYPES = ['range', 'color', 'file', 'checkbox', 'radio', 'button', 'submit', 'reset', 'image']
+        if tag_name == 'input' and input_type in NON_FILLABLE_INPUT_TYPES:
+            logger.debug(f"[Discovery] Skipping input[type={input_type}] for fill action: {selector}")
             return False
 
         return True
@@ -171,13 +186,52 @@ async def _try_aria_label(browser, intent) -> Optional[Dict[str, Any]]:
     Tier 1: aria-label, aria-labelledby (STABLE)
 
     Highest priority - semantic, accessible, framework-independent.
+    Uses scoped discovery for complex UIs (Lightning, modals).
     """
     name = intent.get("element") or intent.get("label") or intent.get("intent")
     if not name:
         return None
 
     action = intent.get("action", "fill")
+    within = intent.get("within")  # Scoped context
 
+    # Try scoped discovery first for fill actions
+    if action == "fill":
+        try:
+            from backend.runtime.scope_helpers import resolve_container, prefer_form_control_with_label
+
+            scope = await resolve_container(browser.page, within)
+            form_control = await prefer_form_control_with_label(name, scope)
+
+            if form_control and await form_control.count() > 0:
+                el = form_control.first
+                tag_name = await el.evaluate("el => el.tagName.toLowerCase()")
+                aria_label_val = await el.get_attribute("aria-label")
+                name_val = await el.get_attribute("name")
+
+                if aria_label_val:
+                    refined_selector = f'{tag_name}[aria-label="{aria_label_val}"]'
+                elif name_val:
+                    refined_selector = f'{tag_name}[name="{name_val}"]'
+                else:
+                    labelledby = await el.get_attribute("aria-labelledby")
+                    if labelledby:
+                        refined_selector = f'{tag_name}[aria-labelledby="{labelledby}"]'
+                    else:
+                        pass  # Fall through to regular discovery
+
+                if 'refined_selector' in locals():
+                    logger.info(f'[DISCOVERY] Tier 1 ✅ aria-label (scoped): {refined_selector}')
+                    ulog.discovery(strategy="aria-label", selector=refined_selector, stable=True)
+                    return {
+                        "selector": refined_selector,
+                        "score": 0.98,
+                        "meta": {"strategy": "aria_label_scoped", "stable": True, "tier": 1}
+                    }
+        except Exception as e:
+            logger.debug(f"[DISCOVERY] Tier 1 scoped discovery failed: {e}")
+
+    # Fall back to regular exact/fuzzy matching
     try:
         # Try exact aria-label match
         selector = f'[aria-label="{name}"]'
@@ -194,6 +248,7 @@ async def _try_aria_label(browser, intent) -> Optional[Dict[str, Any]]:
                 refined_selector = f'{tag_name}[aria-label="{name}"]'
 
                 logger.info(f'[DISCOVERY] Tier 1 ✅ aria-label: {refined_selector}')
+                ulog.discovery(strategy="aria-label", selector=refined_selector, stable=True)
                 return {
                     "selector": refined_selector,
                     "score": 0.98,
@@ -207,11 +262,24 @@ async def _try_aria_label(browser, intent) -> Optional[Dict[str, Any]]:
         for el in all_elements:
             aria_val = await el.get_attribute("aria-label")
             if aria_val and pattern.search(aria_val):
+                # Semantic filtering: Reject UI control aria-labels for form fill actions
+                # These are table/UI controls, not actual form fields
+                UI_CONTROL_KEYWORDS = ['width', 'height', 'resize', 'column', 'row', 'sort', 'filter', 'toggle', 'expand', 'collapse']
+                if action == "fill" and any(keyword in aria_val.lower() for keyword in UI_CONTROL_KEYWORDS):
+                    logger.debug(f"[DISCOVERY] Tier 1 fuzzy: Rejecting UI control aria-label={aria_val}")
+                    continue
+
                 if await _check_visibility(browser, "", el):
+                    # Validate element is appropriate for the action (skip sliders, color pickers, etc.)
+                    if not await _is_fillable_element(browser, "", el, action):
+                        logger.debug(f"[DISCOVERY] Tier 1 fuzzy: Skipping non-fillable aria-label={aria_val}")
+                        continue
+
                     tag_name = await el.evaluate("el => el.tagName.toLowerCase()")
                     refined_selector = f'{tag_name}[aria-label="{aria_val}"]'
 
                     logger.info(f'[DISCOVERY] Tier 1 ✅ aria-label (fuzzy): {refined_selector}')
+                    ulog.discovery(strategy="aria-label-fuzzy", selector=refined_selector, stable=True)
                     return {
                         "selector": refined_selector,
                         "score": 0.96,

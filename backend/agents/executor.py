@@ -453,7 +453,8 @@ async def run(state: RunState) -> RunState:
     # Applies to ALL apps (static + dynamic), profile-aware timeouts
     readiness_ok = await _universal_readiness_gate(browser, selector)
     if not readiness_ok:
-        logger.warning(f"[EXEC] Readiness gate failed for {selector[:50]}")
+        selector_preview = selector[:50] if selector else "(no selector)"
+        logger.warning(f"[EXEC] Readiness gate failed for {selector_preview}")
         state.failure = Failure.timeout
         return state
 
