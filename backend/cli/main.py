@@ -71,17 +71,32 @@ async def _clear_cache_async():
     Clear all cache (postgres selector_cache + redis) using storage module.
 
     Week 8 Phase B: Cache management for clean test runs.
+    Creates and destroys its own storage instance to avoid connection reuse issues.
     """
+    import asyncpg
+    import redis.asyncio as redis_async
+
     try:
-        storage = await get_storage()
+        # Direct postgres connection (don't use storage singleton)
+        conn = await asyncpg.connect(
+            host=os.getenv("DATABASE_HOST", "postgres"),
+            port=int(os.getenv("DATABASE_PORT", "5432")),
+            user=os.getenv("DATABASE_USER", "pacts"),
+            password=os.getenv("DATABASE_PASSWORD", "pacts"),
+            database=os.getenv("DATABASE_NAME", "pacts")
+        )
 
-        # Clear postgres selector_cache
-        await storage.selector_cache.pool.execute("TRUNCATE TABLE selector_cache")
+        await conn.execute("TRUNCATE TABLE selector_cache")
+        await conn.close()
 
-        # Clear redis
-        await storage.selector_cache.redis.flushall()
-
-        await shutdown_storage()
+        # Direct redis connection (don't use storage singleton)
+        redis_client = redis_async.Redis(
+            host=os.getenv("REDIS_HOST", "redis"),
+            port=int(os.getenv("REDIS_PORT", "6379")),
+            decode_responses=True
+        )
+        await redis_client.flushall()
+        await redis_client.aclose()
 
     except Exception as e:
         print_warning(f"Cache clear failed (non-critical): {e}")
