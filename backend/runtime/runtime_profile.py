@@ -11,6 +11,7 @@ import os
 import logging
 from typing import Optional, Dict, Any
 from dataclasses import dataclass
+from backend.utils import ulog  # Week 8 EDR: Unified structured logging
 
 logger = logging.getLogger(__name__)
 
@@ -133,19 +134,33 @@ def get_profile(url: str, html_content: Optional[str] = None) -> str:
     override = os.getenv("PACTS_PROFILE_OVERRIDE", "").strip().upper()
     if override in (STATIC, DYNAMIC):
         logger.info(f"[PROFILE] Using override: {override}")
+        ulog.profile(using=override, detail="env-override")
         return override
 
     # Auto-detect
     detected = detect_profile(url, html_content)
 
+    # Determine signal for logging
+    signal = ""
+    if "lightning.force.com" in url.lower():
+        signal = "sf-lightning"
+    elif "react" in (html_content or "").lower():
+        signal = "react"
+    elif "angular" in (html_content or "").lower():
+        signal = "angular"
+    else:
+        signal = url[:50]  # First 50 chars of URL
+
     # Fall back to default if set
     default = os.getenv("PACTS_PROFILE_DEFAULT", "").strip().upper()
     if default in (STATIC, DYNAMIC) and not detected:
         logger.info(f"[PROFILE] Using default: {default}")
+        ulog.profile(using=default, detail="env-default")
         return default
 
     # Use detected profile
     logger.info(f"[PROFILE] Using detected profile: {detected}")
+    ulog.profile(using=detected, detail=signal)
     return detected
 
 

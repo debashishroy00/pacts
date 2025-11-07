@@ -4,6 +4,7 @@ import re
 import logging
 from backend.mcp.mcp_client import get_playwright_client, USE_MCP
 from backend.runtime.salesforce_helpers import ensure_lightning_ready_list, resolve_scope_container
+from backend.utils import ulog  # Week 8 EDR: Unified structured logging
 
 logger = logging.getLogger(__name__)
 

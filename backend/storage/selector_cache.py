@@ -14,9 +14,10 @@ import os
 import logging
 import hashlib
 from urllib.parse import urlparse
-from typing import Optional, Dict, Any
+from typing import Dict, Any, Optional
 from datetime import datetime, timedelta
 import json
+from backend.utils import ulog  # Week 8 EDR: Unified structured logging
 
 from .base import BaseStorage
 
@@ -196,6 +197,7 @@ class SelectorCache(BaseStorage):
         """
         # Week 8 EDR: Enforce stable-only caching policy
         if not stable:
+            ulog.cache_skipped(selector=selector[:80], reason="VOLATILE")
             logger.warning(
                 f"[CACHE] ⏩ SKIPPED (VOLATILE): {element} → {selector[:50]} "
                 f"(strategy: {strategy}, stable={stable})"
@@ -234,6 +236,7 @@ class SelectorCache(BaseStorage):
         if dom_hash:
             await self._save_dom_hash(url, element, dom_hash)
 
+        ulog.cache_saved(selector=selector[:80], strategy=strategy)
         logger.info(
             f"[CACHE] 💾 SAVED (STABLE): {element} → {selector[:50]} "
             f"(strategy: {strategy}, stable=✓)"

@@ -7,6 +7,7 @@ from ..runtime.browser_manager import BrowserManager
 from ..runtime.policies import five_point_gate
 from ..runtime import salesforce_helpers as sf
 from ..runtime import runtime_profile  # Week 8 EDR: Universal profile detection
+from ..utils import ulog  # Week 8 EDR: Unified structured logging
 from ..telemetry.tracing import traced
 from ..mcp.mcp_client import USE_MCP
 from .execution_helpers import press_with_fallbacks, fill_with_activator, handle_spa_navigation
@@ -36,6 +37,7 @@ async def _universal_readiness_gate(browser, selector: str) -> bool:
 
     try:
         # Stage 1: DOM Idle (networkidle or domcontentloaded)
+        ulog.readiness(stage="dom-idle")
         logger.debug(f"[READINESS] Stage 1: Waiting for DOM idle ({config.network_idle_timeout}ms)")
         try:
             await page.wait_for_load_state("networkidle", timeout=config.network_idle_timeout)
@@ -43,12 +45,14 @@ async def _universal_readiness_gate(browser, selector: str) -> bool:
         except Exception:
             # Fallback to domcontentloaded for faster static sites
             try:
+                ulog.readiness(stage="domcontentloaded-fallback")
                 await page.wait_for_load_state("domcontentloaded", timeout=2000)
                 logger.debug(f"[READINESS] Stage 1 ✓: DOM idle (domcontentloaded fallback)")
             except Exception as e:
                 logger.warning(f"[READINESS] Stage 1 ⚠: DOM idle timeout ({e})")
 
         # Stage 2: Element Ready (visible + enabled)
+        ulog.readiness(stage="element-visible")
         logger.debug(f"[READINESS] Stage 2: Checking element visibility ({selector[:50]})")
         try:
             locator = page.locator(selector).first
@@ -66,6 +70,7 @@ async def _universal_readiness_gate(browser, selector: str) -> bool:
             return False
 
         # Stage 3: App Ready Hook (optional - only if defined by app)
+        ulog.readiness(stage="app-ready-hook")
         logger.debug(f"[READINESS] Stage 3: Checking app-specific readiness hook")
         try:
             has_hook = await page.evaluate("typeof window.__APP_READY__ === 'function'")
