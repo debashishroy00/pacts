@@ -1,14 +1,8 @@
 {
   "permissions": {
     "allow": [
-      "Bash(docker compose run --rm pacts-runner bash -c 'python -m backend.cli.main test --req salesforce_opportunity_postlogin --clear-cache 2>&1')",
-      "Bash(git commit -m \"fix(week8): Use direct DB connections for cache clear to avoid singleton issues\n\nSwitched to direct asyncpg/redis connections instead of storage singleton:\n- Creates fresh connections just for cache clearing\n- Closes connections immediately after\n- Avoids event loop/connection reuse issues\n- Storage singleton remains fresh for test run\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>\")",
-      "Bash(docker compose run --rm pacts-runner bash -c 'python -m backend.cli.main test --req salesforce_opportunity_postlogin --clear-cache 2>&1 | head -50')",
-      "Bash(docker compose run --rm pacts-runner bash -c 'python -m backend.cli.main test --req salesforce_create_contact --clear-cache 2>&1 | tee runs/salesforce/contact_clean.log')",
-      "Bash(cat runs/salesforce/contact1_retry.log)",
-      "Bash(cat runs/salesforce/contact_run1.log)",
-      "Bash(docker compose run --rm pacts-runner bash -c 'python -m backend.cli.main test --req salesforce_create_contact --clear-cache --headed 2>&1')",
-      "Bash(docker compose run --rm pacts-runner bash -c 'python -m backend.cli.main test --req salesforce_create_contact --clear-cache 2>&1')"
+      "Bash(chmod +x pacts)",
+      "Bash(git add pacts pacts.bat QUICKSTART.md)"
     ],
     "deny": [],
     "ask": []

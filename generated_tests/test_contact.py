@@ -1,8 +1,8 @@
 """
 PACTS Generated Test
 ====================
-Requirement ID: salesforce_create_contact
-Generated: 2025-11-07 06:34:03
+Requirement ID: contact
+Generated: 2025-11-07 06:55:55
 Verdict: PASS
 
 Discovery Strategies Used:
@@ -18,9 +18,9 @@ import asyncio
 from playwright.async_api import async_playwright
 
 
-async def test_salesforce_create_contact():
+async def test_contact():
     """
-    Test for requirement: salesforce_create_contact
+    Test for requirement: contact
 
     Test Details:
     - URL: https://orgfarm-9a1de3d5e8-dev-ed.develop.my.salesforce.com
@@ -64,11 +64,11 @@ async def test_salesforce_create_contact():
         # Step 7: FILL Email
         # Selector: input#input-463
         # Strategy: label_for, Confidence: 0.86
-        await page.locator("input#input-463").fill("test.contact.{{current_timestamp}}@example.com")
+        await page.locator("input#input-463").fill("test.contact.current_timestamp@example.com")
         # Step 8: FILL Phone
-        # Selector: input#input-416
+        # Selector: input[name="Phone"]
         # Strategy: label_for, Confidence: 0.86
-        await page.locator("input#input-416").fill("555-1234")
+        await page.locator("input[name="Phone"]").fill("555-1234")
         # Step 9: CLICK Save
         # Selector: role=button[name*="save"i] >> nth=0
         # Strategy: role_name_disambiguated, Confidence: 0.95
@@ -77,4 +77,4 @@ async def test_salesforce_create_contact():
 
 
 if __name__ == "__main__":
-    asyncio.run(test_salesforce_create_contact())
+    asyncio.run(test_contact())
