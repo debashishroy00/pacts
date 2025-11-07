@@ -50,6 +50,7 @@ htmlcov/
 # Logs
 *.log
 logs/
+runs/
 
 # Database
 *.db
