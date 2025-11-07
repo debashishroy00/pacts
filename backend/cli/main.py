@@ -335,39 +335,62 @@ def _display_mcp_status(status: dict):
 
 def discover_requirement_file(req_id: str) -> Optional[Path]:
     """
-    Discover requirement file by REQ-ID.
+    Discover requirement file by REQ-ID or simple name.
+
+    Supports business-user friendly names:
+    - "contact" → salesforce_create_contact.txt
+    - "opportunity" → salesforce_opportunity_postlogin.txt
+    - "wikipedia" → wikipedia_search.txt
 
     Searches in order:
-    1. requirements/{req_id}.txt (natural language)
-    2. requirements/{req_id}.xlsx
-    3. requirements/{req_id}.json
-    4. specs/{req_id}.json
-    5. specs/{req_id}.xlsx
+    1. Exact match: requirements/{req_id}.txt
+    2. Fuzzy match: requirements/*{req_id}*.txt (e.g., "contact" → "*contact*.txt")
+    3. JSON/Excel variants
+    4. specs/ directory
 
     Args:
-        req_id: Requirement ID (e.g., REQ-001) or file name pattern
+        req_id: Requirement ID (e.g., REQ-001) or simple name (e.g., "contact", "opportunity")
 
     Returns:
         Path to file if found, None otherwise
     """
+    req_id_lower = req_id.lower()
+
     search_paths = [
-        Path("requirements") / f"{req_id}.txt",  # Natural language (NEW)
+        Path("requirements") / f"{req_id}.txt",  # Exact match
         Path("requirements") / f"{req_id}.xlsx",
         Path("requirements") / f"{req_id}.json",
         Path("specs") / f"{req_id}.json",
         Path("specs") / f"{req_id}.xlsx",
-        # Also try lowercase versions
-        Path("specs") / f"{req_id.lower()}.json",
-        Path("requirements") / f"{req_id.lower()}.txt",
-        # Try pattern matching (e.g., saucedemo_login.json for REQ-LOGIN-001)
+        # Lowercase versions
+        Path("specs") / f"{req_id_lower}.json",
+        Path("requirements") / f"{req_id_lower}.txt",
     ]
+
+    # Try exact matches first
+    for path in search_paths:
+        if path.exists():
+            return path
+
+    # Fuzzy match in requirements/ directory (business-user friendly)
+    requirements_dir = Path("requirements")
+    if requirements_dir.exists():
+        # Try fuzzy matching: "contact" matches "*contact*.txt"
+        for file in requirements_dir.glob("*.txt"):
+            if req_id_lower in file.stem.lower():
+                return file
+
+        # Also try JSON/Excel with fuzzy match
+        for file in requirements_dir.glob("*.*"):
+            if file.suffix in ['.json', '.xlsx'] and req_id_lower in file.stem.lower():
+                return file
 
     # Also search for partial matches in specs/
     specs_dir = Path("specs")
     if specs_dir.exists():
         for file in specs_dir.glob("*.json"):
             # Check if req_id appears in filename
-            if req_id.lower() in file.stem.lower():
+            if req_id_lower in file.stem.lower():
                 return file
 
             # Check if req_id matches inside JSON file
@@ -378,10 +401,6 @@ def discover_requirement_file(req_id: str) -> Optional[Path]:
                         return file
             except:
                 pass
-
-    for path in search_paths:
-        if path.exists():
-            return path
 
     return None
 
