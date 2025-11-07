@@ -24,6 +24,9 @@ except ImportError:
     UX_PATTERNS = []
     UX_TOGGLE = False
 
+# Week 8 Phase B: Scope-first discovery
+SCOPE_TOGGLE = os.getenv("PACTS_SCOPE_FEATURE", "true").lower() == "true"
+
 def _normalize_hitl_actions(spec: Dict[str, Any]) -> Dict[str, Any]:
     """
     Post-processor safety net: Normalize obvious 2FA/CAPTCHA/verification steps to "wait" action.
@@ -159,6 +162,72 @@ def _enrich_steps_with_ux_patterns(spec: Dict[str, Any]) -> Dict[str, Any]:
             prev_step_target = step.get("target")
 
     return spec
+
+
+def apply_ux_rules(plan: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """
+    Week 8 Phase B: Apply scope-first UX rules to plan steps.
+
+    Automatically injects scopes, waits, and gates for common UX patterns:
+    - Modal/dialog patterns (New, Create, App Launcher)
+    - Dropdown selection (combobox listbox pattern)
+    - Tab navigation (tab → tabpanel activation)
+
+    Args:
+        plan: List of plan steps (output from suite processing)
+
+    Returns:
+        Plan with scope metadata added to relevant steps
+
+    Emits:
+        [PLANNER] rule=<name> action=<a> scope=<s>
+    """
+    from ..utils import ulog
+
+    if not plan or not SCOPE_TOGGLE:
+        return plan
+
+    def _next_is_form(i: int) -> bool:
+        """Check if next step is a form interaction"""
+        return i + 1 < len(plan) and plan[i + 1].get("action") in {"type", "fill", "select", "click"}
+
+    def _next_is_option_click(i: int) -> bool:
+        """Check if next step is an option selection"""
+        return i + 1 < len(plan) and plan[i + 1].get("meta", {}).get("pattern") == "option-select"
+
+    for i, step in enumerate(plan):
+        action = step.get("action", "").lower()
+        element = step.get("element", "").lower()
+
+        # Rule 1: open_modal_scope
+        # After clicking New/Create/App Launcher, scope subsequent form interactions to dialog
+        if action == "click" and any(trigger in element for trigger in ["new", "create", "app launcher"]):
+            if _next_is_form(i):
+                # Inject scope metadata for next step(s)
+                step.setdefault("scope", {"type": "dialog", "name": step.get("element")})
+                step.setdefault("wait", "scope_ready")
+                ulog.emit("PLANNER", rule="open_modal_scope", action="click", scope=step["scope"]["type"])
+                print(f"[Planner] 🎯 Applied Phase B rule 'open_modal_scope' to step {i}: {step.get('element')}")
+
+        # Rule 2: dropdown_selection
+        # After clicking dropdown/combobox, scope to listbox and wait for options
+        elif action == "click" and any(role in element for role in ["combobox", "dropdown"]):
+            if _next_is_option_click(i):
+                step.setdefault("scope", {"type": "listbox", "name": "-"})
+                step.setdefault("wait", "listbox_ready")
+                ulog.emit("PLANNER", rule="dropdown_selection", action="click", scope="listbox")
+                print(f"[Planner] 🎯 Applied Phase B rule 'dropdown_selection' to step {i}: {step.get('element')}")
+
+        # Rule 3: tab_navigation
+        # After clicking tab, scope to active tabpanel
+        elif action == "click" and "tab" in element and element != "tabpanel":
+            if _next_is_form(i):
+                step.setdefault("scope", {"type": "tabpanel", "name": "-"})
+                step.setdefault("wait", "tabpanel_ready")
+                ulog.emit("PLANNER", rule="tab_navigation", action="click", scope="tabpanel")
+                print(f"[Planner] 🎯 Applied Phase B rule 'tab_navigation' to step {i}: {step.get('element')}")
+
+    return plan
 
 
 async def parse_natural_language_to_json(natural_language_text: str, url: Optional[str] = None) -> Dict[str, Any]:
@@ -437,6 +506,9 @@ async def run(state: RunState) -> RunState:
                             step["value"] = step["value"].replace(placeholder, str(var_value))
 
                     plan.append(step)
+
+        # Phase B: Apply scope-first UX rules
+        plan = apply_ux_rules(plan)
 
         # Set intents for POMBuilder compatibility
         state.context["intents"] = [

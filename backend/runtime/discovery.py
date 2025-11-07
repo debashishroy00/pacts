@@ -2,6 +2,7 @@ from __future__ import annotations
 from typing import Dict, Any, Optional
 import re
 import logging
+import os
 from backend.mcp.mcp_client import get_playwright_client, USE_MCP
 from backend.runtime.salesforce_helpers import ensure_lightning_ready_list, resolve_scope_container
 from backend.utils import ulog  # Week 8 EDR: Unified structured logging
@@ -1048,8 +1049,33 @@ async def discover_selector(browser, intent) -> Optional[Dict[str, Any]]:
     # Week 5: Lightning list page readiness (prevents "New" button timeout)
     await ensure_lightning_ready_list(browser.page)
 
-    # PRIORITY 0: Dialog-scoped discovery for Salesforce App Launcher (immediate fix)
-    if within:
+    # ═══════════════════════════════════════════════════════════════════════════════
+    # Week 8 Phase B: Scope-First Discovery (Generic Container Resolution)
+    # ═══════════════════════════════════════════════════════════════════════════════
+    scope_container = None
+    scope_enabled = os.getenv("PACTS_SCOPE_FEATURE", "true").lower() == "true"
+
+    if scope_enabled and within:
+        try:
+            from backend.runtime.scope_helpers import resolve_container, wait_scope_ready
+
+            logger.info(f"[SCOPE] Phase B: Resolving container for within='{within}'")
+
+            # Resolve the container (dialog → tabpanel → form → main → page)
+            scope_container = await resolve_container(browser.page, within if within != "-" else None)
+
+            # Wait for scope to be ready
+            await wait_scope_ready(scope_container)
+
+            logger.info(f"[SCOPE] Phase B: Container resolved and ready")
+
+        except Exception as e:
+            logger.warning(f"[SCOPE] Phase B: Container resolution failed: {e}, using page scope")
+            scope_container = browser.page
+
+    # PRIORITY 0: Dialog-scoped discovery for Salesforce App Launcher (legacy)
+    # TODO: Migrate this to use generic scope_container above
+    if within and not scope_container:
         logger.info(f"[SCOPE] ⭐ WITHIN HINT DETECTED: target='{target}' within='{within}'")
 
         try:
