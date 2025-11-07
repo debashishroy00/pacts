@@ -555,7 +555,8 @@ def cli():
 @click.option('--mcp/--no-mcp', default=False, help='Enable MCP Playwright integration')
 @click.option('--clear-cache', is_flag=True, help='Clear all cache (postgres + redis) before running test')
 @click.option('--no-cache', is_flag=True, help='Disable cache writes for this run (read-only mode)')
-def test(req: str, url: Optional[str], headed: bool, slow_mo: int, mcp: bool, clear_cache: bool, no_cache: bool):
+@click.option('--refresh-session', is_flag=True, help='Force Salesforce session refresh (interactive login)')
+def test(req: str, url: Optional[str], headed: bool, slow_mo: int, mcp: bool, clear_cache: bool, no_cache: bool, refresh_session: bool):
     """
     Execute test from requirement specification.
 
@@ -631,10 +632,21 @@ def test(req: str, url: Optional[str], headed: bool, slow_mo: int, mcp: bool, cl
         mcp_status = _check_mcp_status(mcp)
         _display_mcp_status(mcp_status)
 
-        # Check for saved Salesforce session
+        # Auto-manage Salesforce session (Week 8 Phase B)
         import os
-        storage_state_path = "hitl/salesforce_auth.json"
-        storage_state = storage_state_path if os.path.exists(storage_state_path) else None
+        storage_state = None
+        is_salesforce = test_url and "salesforce.com" in test_url.lower()
+
+        if is_salesforce:
+            from ..utils.sf_session_manager import ensure_sf_session
+            try:
+                storage_state = asyncio.run(ensure_sf_session(
+                    force_refresh=refresh_session,  # Use CLI flag
+                    test_url=test_url
+                ))
+            except Exception as e:
+                print_error(f"Session refresh failed: {e}")
+                print_warning("Proceeding without saved session (may require manual login)")
 
         browser_config = {
             "headless": not headed,

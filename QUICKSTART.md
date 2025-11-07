@@ -52,6 +52,13 @@ pacts test salesforce_create_contact.txt --clear-cache
 pacts test salesforce_create_contact.txt --slow-mo 500
 ```
 
+### Refresh Salesforce session (if expired)
+```bash
+pacts test salesforce_create_contact.txt --refresh-session
+```
+
+**Note**: PACTS automatically detects expired Salesforce sessions and will prompt you to log in when needed. The `--refresh-session` flag forces a fresh login even if the session file exists.
+
 ### Combine options
 ```bash
 pacts test salesforce_create_contact.txt --clear-cache --slow-mo 500
