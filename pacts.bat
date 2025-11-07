@@ -10,17 +10,25 @@ if "%1"=="test" (
     echo %2 | findstr /i "salesforce" >nul
     if %errorlevel%==0 (
         REM Salesforce test - check session validity first
-        python scripts\check_sf_session.py
+        python scripts\check_sf_session.py >nul 2>&1
         if %errorlevel% neq 0 (
             echo.
-            echo [PACTS] Salesforce session check failed
-            echo [PACTS] Run: python scripts\session_capture_sf.py
-            echo [PACTS] Then re-run your test
-            exit /b 1
+            echo [PACTS] Salesforce session expired - refreshing automatically...
+            echo.
+            REM Auto-refresh session
+            python scripts\session_capture_sf.py
+            if %errorlevel% neq 0 (
+                echo.
+                echo [PACTS] Session refresh failed or cancelled
+                exit /b 1
+            )
+            echo.
+            echo [PACTS] Session refreshed successfully! Continuing with test...
+            echo.
         )
     )
 
-    REM Session valid or not Salesforce - proceed with test
+    REM Session valid or refreshed - proceed with test
     docker compose run --rm pacts-runner bash -c "python -m backend.cli.main test --req %2 %3 %4 %5 %6 %7 %8 %9"
 ) else (
     docker compose run --rm pacts-runner bash -c "python -m backend.cli.main %*"

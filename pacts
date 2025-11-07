@@ -12,13 +12,23 @@ if [ "$1" = "test" ] && [ -n "$2" ] && [[ ! "$2" =~ ^-- ]]; then
     # Check if this is a Salesforce test
     if [[ "$TEST_NAME" == *"salesforce"* ]]; then
         # Check session validity before launching Docker
-        python scripts/check_sf_session.py
+        python scripts/check_sf_session.py >/dev/null 2>&1
         if [ $? -ne 0 ]; then
             echo ""
-            echo "[PACTS] Salesforce session check failed"
-            echo "[PACTS] Run: python scripts/session_capture_sf.py"
-            echo "[PACTS] Then re-run your test"
-            exit 1
+            echo "[PACTS] Salesforce session expired - refreshing automatically..."
+            echo ""
+
+            # Auto-refresh session
+            python scripts/session_capture_sf.py
+            if [ $? -ne 0 ]; then
+                echo ""
+                echo "[PACTS] Session refresh failed or cancelled"
+                exit 1
+            fi
+
+            echo ""
+            echo "[PACTS] Session refreshed successfully! Continuing with test..."
+            echo ""
         fi
     fi
 

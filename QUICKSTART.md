@@ -52,23 +52,46 @@ pacts test salesforce_create_contact.txt --clear-cache
 pacts test salesforce_create_contact.txt --slow-mo 500
 ```
 
-### Salesforce Session Management
+### Salesforce Session Management (Fully Automatic!)
 
-PACTS automatically checks if your Salesforce session is valid (less than 2 hours old) before running tests.
+PACTS automatically manages your Salesforce sessions! No manual steps required.
 
-**If session is expired**, you'll see:
-```
-[AUTH] WARNING: Salesforce session missing or expired (>2 hours old)
-[AUTH] Please run: python scripts/session_capture_sf.py
-[AUTH] Then re-run your test
-```
+**What happens when you run a Salesforce test:**
 
-**To refresh your session**:
+1. **Session check**: PACTS checks if your session is valid (< 2 hours old)
+2. **Auto-refresh** (if expired): Browser opens automatically for you to log in
+3. **Auto-detection**: PACTS detects when you've successfully logged in
+4. **Test continues**: Your test runs automatically with the fresh session
+
+**Example workflow:**
 ```bash
-python scripts/session_capture_sf.py
+# Run a Salesforce test
+pacts test salesforce_create_contact.txt
+
+# If session is expired, you'll see:
+# [PACTS] Salesforce session expired - refreshing automatically...
+#
+# ======================================================================
+#   SALESFORCE LOGIN REQUIRED
+# ======================================================================
+#
+#   Please complete login in the browser window:
+#     1. Enter username
+#     2. Enter password
+#     3. Complete 2FA if prompted
+#
+#   PACTS will auto-detect when you're logged in...
+#   (No need to create any files manually!)
+#
+# ======================================================================
+
+# After you log in, PACTS automatically continues:
+# [SF] ✓ Login detected!
+# [SF] ✓ Session saved
+# [PACTS] Session refreshed successfully! Continuing with test...
 ```
 
-This will open a browser for you to log in to Salesforce (username + password + 2FA). After logging in, create a file called `hitl/session_done.txt` (just type "done" into the file), and your session will be saved for the next 2 hours.
+**That's it!** Just log in when prompted, and PACTS handles everything else. Your session is valid for ~2 hours.
 
 ### Combine options
 ```bash
