@@ -505,6 +505,11 @@ async def run(state: RunState) -> RunState:
                             placeholder = f"{{{{{var_name}}}}}"
                             step["value"] = step["value"].replace(placeholder, str(var_value))
 
+                        # Substitute {timestamp} with Unix timestamp for unique data
+                        if "{timestamp}" in step["value"]:
+                            import time
+                            step["value"] = step["value"].replace("{timestamp}", str(int(time.time())))
+
                     plan.append(step)
 
         # Phase B: Apply scope-first UX rules
