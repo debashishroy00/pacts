@@ -1,0 +1,8 @@
+#!/bin/bash
+# PACTS - Simple test runner for business users
+# Usage: ./pacts test contact
+#        ./pacts test opportunity
+#        ./pacts test wikipedia
+
+# Run PACTS CLI inside Docker container
+docker compose run --rm pacts-runner bash -c "python -m backend.cli.main $@"
