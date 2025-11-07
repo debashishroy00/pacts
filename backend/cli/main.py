@@ -71,27 +71,36 @@ def _clear_all_cache():
     Clear all cache (postgres selector_cache + redis).
 
     Week 8 Phase B: Cache management for clean test runs.
+    Works both from host (docker compose) and inside container (direct connection).
     """
     import subprocess
 
     try:
-        # Clear postgres selector_cache table
+        # Try direct postgres connection first (when inside container)
+        result = subprocess.run([
+            "psql", "-h", "postgres", "-U", "pacts", "-d", "pacts",
+            "-c", "TRUNCATE TABLE selector_cache;"
+        ], capture_output=True, text=True, timeout=5)
+
+        if result.returncode == 0:
+            # Direct connection worked (inside container)
+            subprocess.run(["redis-cli", "-h", "redis", "FLUSHALL"], check=True, capture_output=True, text=True)
+            return
+
+        # Fallback to docker compose (when on host)
         subprocess.run([
             "docker", "compose", "exec", "-T", "postgres",
             "psql", "-U", "pacts", "-d", "pacts",
             "-c", "TRUNCATE TABLE selector_cache;"
         ], check=True, capture_output=True, text=True)
 
-        # Flush redis
         subprocess.run([
             "docker", "compose", "exec", "-T", "redis",
             "redis-cli", "FLUSHALL"
         ], check=True, capture_output=True, text=True)
 
-    except subprocess.CalledProcessError as e:
+    except Exception as e:
         print_warning(f"Cache clear failed (non-critical): {e}")
-    except FileNotFoundError:
-        print_warning("docker-compose not found - cache not cleared (non-critical)")
 
 
 async def _run_pipeline_with_storage(state: RunState) -> RunState:
