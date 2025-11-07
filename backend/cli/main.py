@@ -66,38 +66,22 @@ def print_info(text: str):
     print(f"{Colors.BLUE}ℹ {text}{Colors.END}")
 
 
-def _clear_all_cache():
+async def _clear_cache_async():
     """
-    Clear all cache (postgres selector_cache + redis).
+    Clear all cache (postgres selector_cache + redis) using storage module.
 
     Week 8 Phase B: Cache management for clean test runs.
-    Works both from host (docker compose) and inside container (direct connection).
     """
-    import subprocess
-
     try:
-        # Try direct postgres connection first (when inside container)
-        result = subprocess.run([
-            "psql", "-h", "postgres", "-U", "pacts", "-d", "pacts",
-            "-c", "TRUNCATE TABLE selector_cache;"
-        ], capture_output=True, text=True, timeout=5)
+        storage = await get_storage()
 
-        if result.returncode == 0:
-            # Direct connection worked (inside container)
-            subprocess.run(["redis-cli", "-h", "redis", "FLUSHALL"], check=True, capture_output=True, text=True)
-            return
+        # Clear postgres selector_cache
+        await storage.selector_cache.pool.execute("TRUNCATE TABLE selector_cache")
 
-        # Fallback to docker compose (when on host)
-        subprocess.run([
-            "docker", "compose", "exec", "-T", "postgres",
-            "psql", "-U", "pacts", "-d", "pacts",
-            "-c", "TRUNCATE TABLE selector_cache;"
-        ], check=True, capture_output=True, text=True)
+        # Clear redis
+        await storage.selector_cache.redis.flushall()
 
-        subprocess.run([
-            "docker", "compose", "exec", "-T", "redis",
-            "redis-cli", "FLUSHALL"
-        ], check=True, capture_output=True, text=True)
+        await shutdown_storage()
 
     except Exception as e:
         print_warning(f"Cache clear failed (non-critical): {e}")
@@ -560,7 +544,7 @@ def test(req: str, url: Optional[str], headed: bool, slow_mo: int, mcp: bool, cl
         # Handle cache management flags
         if clear_cache:
             print("Clearing cache (postgres + redis)...")
-            _clear_all_cache()
+            asyncio.run(_clear_cache_async())
             print("✓ Cache cleared\n")
 
         if no_cache:
