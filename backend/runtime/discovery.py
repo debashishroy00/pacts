@@ -1179,7 +1179,6 @@ async def discover_selector(browser, intent) -> Optional[Dict[str, Any]]:
     # PRIORITY 1: MCP Discovery-Only Mode (Phase A)
     # MCP enriches discovery, all actions executed locally
     # Check MCP_ACTIONS_ENABLED flag - must be false for Phase A
-    import os
     mcp_actions_enabled = os.getenv("MCP_ACTIONS_ENABLED", "false").lower() == "true"
 
     # Phase A: MCP actions DISABLED (discovery-only)
