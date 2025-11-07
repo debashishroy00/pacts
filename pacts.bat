@@ -6,8 +6,8 @@ REM        pacts test wikipedia_search.txt
 
 REM Convert "test <filename>" to "test --req <filename>"
 if "%1"=="test" (
-    REM Check if this is a Salesforce test (contains salesforce in filename)
-    echo %2 | findstr /i "salesforce" >nul
+    REM Check if this is a Salesforce test using Python (more reliable than findstr)
+    python -c "import sys; sys.exit(0 if 'salesforce' in '%2'.lower() else 1)" >nul 2>&1
     if %errorlevel%==0 (
         REM Salesforce test - check session validity first
         python scripts\check_sf_session.py >nul 2>&1
