@@ -1,10 +1,10 @@
 #!/bin/bash
 # PACTS - Simple test runner for business users
-# Usage: ./pacts test contact
-#        ./pacts test opportunity
-#        ./pacts test wikipedia
+# Usage: ./pacts test salesforce_create_contact.txt
+#        ./pacts test salesforce_opportunity_postlogin.txt
+#        ./pacts test wikipedia_search.txt
 
-# Convert "test <name>" to "test --req <name>" for business users
+# Convert "test <filename>" to "test --req <filename>" for business users
 if [ "$1" = "test" ] && [ -n "$2" ] && [[ ! "$2" =~ ^-- ]]; then
     # Second arg doesn't start with --, so it's a test name
     TEST_NAME="$2"

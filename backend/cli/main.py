@@ -335,55 +335,52 @@ def _display_mcp_status(status: dict):
 
 def discover_requirement_file(req_id: str) -> Optional[Path]:
     """
-    Discover requirement file by REQ-ID or simple name.
+    Discover requirement file by filename or REQ-ID.
 
-    Supports business-user friendly names:
-    - "contact" → salesforce_create_contact.txt
-    - "opportunity" → salesforce_opportunity_postlogin.txt
-    - "wikipedia" → wikipedia_search.txt
+    Examples:
+    - "salesforce_create_contact.txt" → requirements/salesforce_create_contact.txt
+    - "salesforce_create_contact" → requirements/salesforce_create_contact.txt
+    - "wikipedia_search.txt" → requirements/wikipedia_search.txt
+    - "REQ-001" → requirements/REQ-001.txt (backward compatible)
 
     Searches in order:
-    1. Exact match: requirements/{req_id}.txt
-    2. Fuzzy match: requirements/*{req_id}*.txt (e.g., "contact" → "*contact*.txt")
-    3. JSON/Excel variants
-    4. specs/ directory
+    1. Direct filename in requirements/ (with or without extension)
+    2. REQ-ID format in requirements/ and specs/
 
     Args:
-        req_id: Requirement ID (e.g., REQ-001) or simple name (e.g., "contact", "opportunity")
+        req_id: Filename (e.g., "salesforce_create_contact.txt") or REQ-ID (e.g., "REQ-001")
 
     Returns:
         Path to file if found, None otherwise
     """
-    req_id_lower = req_id.lower()
+    # Try direct filename in requirements/ directory first
+    requirements_dir = Path("requirements")
 
+    # If user provides filename with extension, use it directly
+    if "." in req_id:
+        direct_path = requirements_dir / req_id
+        if direct_path.exists():
+            return direct_path
+
+    # If no extension, try adding common extensions
+    req_id_lower = req_id.lower()
     search_paths = [
-        Path("requirements") / f"{req_id}.txt",  # Exact match
-        Path("requirements") / f"{req_id}.xlsx",
-        Path("requirements") / f"{req_id}.json",
+        requirements_dir / f"{req_id}.txt",  # Exact with .txt
+        requirements_dir / f"{req_id}.json",
+        requirements_dir / f"{req_id}.xlsx",
+        requirements_dir / f"{req_id_lower}.txt",  # Lowercase variants
+        requirements_dir / f"{req_id_lower}.json",
+        requirements_dir / f"{req_id_lower}.xlsx",
+        # REQ-ID format in specs/ (backward compatible)
         Path("specs") / f"{req_id}.json",
         Path("specs") / f"{req_id}.xlsx",
-        # Lowercase versions
         Path("specs") / f"{req_id_lower}.json",
-        Path("requirements") / f"{req_id_lower}.txt",
     ]
 
-    # Try exact matches first
+    # Try exact matches
     for path in search_paths:
         if path.exists():
             return path
-
-    # Fuzzy match in requirements/ directory (business-user friendly)
-    requirements_dir = Path("requirements")
-    if requirements_dir.exists():
-        # Try fuzzy matching: "contact" matches "*contact*.txt"
-        for file in requirements_dir.glob("*.txt"):
-            if req_id_lower in file.stem.lower():
-                return file
-
-        # Also try JSON/Excel with fuzzy match
-        for file in requirements_dir.glob("*.*"):
-            if file.suffix in ['.json', '.xlsx'] and req_id_lower in file.stem.lower():
-                return file
 
     # Also search for partial matches in specs/
     specs_dir = Path("specs")
