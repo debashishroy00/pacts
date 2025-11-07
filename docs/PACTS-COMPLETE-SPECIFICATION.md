@@ -1977,38 +1977,73 @@ async def test_saucedemo_login():
 
 ---
 
-## 12. Deployment Architecture
+## 12. Deployment Architecture ✅ Week 8 Phase A Update
 
-### 12.1 Container Structure
+**Status**: Containerized runner validated (4/4 tests PASS on Docker)
 
-```
+### 12.1 Container Structure (Week 8 Phase A)
+
+**Containerized Runner** (Recommended for cross-platform deployment):
+
+```yaml
 docker-compose.yml:
   services:
+    # PACTS Runner (Week 8 Phase A - Containerized Execution)
+    pacts-runner:
+      build: ./backend
+      volumes:
+        - ./backend:/app/backend
+        - ./hitl:/app/hitl
+        - ./runs:/app/runs
+        - ./requirements:/app/requirements
+      environment:
+        - DATABASE_URL=postgresql://pacts:pacts@postgres:5432/pacts
+        - REDIS_URL=redis://redis:6379/0
+        - POSTGRES_HOST=postgres  # Service name (not localhost)
+        - REDIS_HOST=redis         # Service name (not localhost)
+      depends_on:
+        - postgres
+        - redis
+      command: python -m backend.cli.main test --req <req_name>
+
+    # API Server (Future)
     pacts-api:
       build: ./backend
       ports: ["8000:8000"]
       depends_on: [postgres, redis]
       environment:
-        - DATABASE_URL=postgresql://...
-        - REDIS_URL=redis://...
+        - DATABASE_URL=postgresql://pacts:pacts@postgres:5432/pacts
+        - REDIS_URL=redis://redis:6379/0
         - LANGSMITH_API_KEY=...
 
+    # Postgres Database
     postgres:
-      image: postgres:15
-      volumes: ["pgdata:/var/lib/postgresql/data"]
+      image: postgres:15-alpine
+      volumes: ["postgres_data:/var/lib/postgresql/data"]
       environment:
         - POSTGRES_DB=pacts
         - POSTGRES_USER=pacts
-        - POSTGRES_PASSWORD=...
+        - POSTGRES_PASSWORD=pacts
+        - POSTGRES_HOST_AUTH_METHOD=scram-sha-256
+      ports: ["5432:5432"]
 
+    # Redis Cache
     redis:
       image: redis:7-alpine
-      volumes: ["redisdata:/data"]
+      volumes: ["redis_data:/data"]
+      ports: ["6379:6379"]
 
-    playwright-browsers:
-      build: ./playwright
-      # Separate container for browser pool
+volumes:
+  postgres_data:
+  redis_data:
 ```
+
+**Why Containerized Runner?**
+- ✅ **Cross-platform**: Works on Windows/Mac/Linux without networking issues
+- ✅ **Service names**: Use `postgres:5432`, `redis:6379` (Docker internal DNS)
+- ✅ **No port forwarding issues**: Bypasses Windows Docker Desktop SCRAM-SHA-256 bug
+- ✅ **Validated**: 4/4 tests PASS (Wikipedia + 3 Salesforce tests)
+- ✅ **Reproducible**: Identical environment across all platforms
 
 ### 12.2 Scaling Strategy
 
@@ -2091,7 +2126,9 @@ pacts/
 │   │   ├── __init__.py
 │   │   ├── browser_client.py       # Playwright wrapper
 │   │   ├── browser_manager.py      # Singleton manager
-│   │   ├── discovery.py            # Discovery strategies
+│   │   ├── discovery.py            # 8-Tier discovery (Week 8 Phase A)
+│   │   ├── scope_helpers.py        # Scoped discovery (Week 8 Phase A)
+│   │   ├── profile.py              # Runtime profile detection (Week 8 Phase A)
 │   │   └── policies.py             # Five-point gate
 │   ├── api/
 │   │   ├── __init__.py
@@ -2110,6 +2147,9 @@ pacts/
 │   │   ├── __init__.py
 │   │   ├── postgres.py             # Postgres adapter
 │   │   └── redis.py                # Redis adapter
+│   ├── utils/
+│   │   ├── __init__.py
+│   │   └── ulog.py                 # Structured logging (Week 8 Phase A)
 │   ├── telemetry/
 │   │   ├── __init__.py
 │   │   └── tracing.py              # LangSmith integration
@@ -2130,10 +2170,20 @@ pacts/
 │   ├── pyproject.toml
 │   └── README.md
 ├── docs/
-│   ├── PHASE-1-COMPLETE.md
-│   ├── EXECUTOR-AGENT-DELIVERED.md
-│   ├── ROLE-NAME-STRATEGY-DELIVERED.md
-│   └── ...
+│   ├── INDEX.md                         # Documentation index
+│   ├── WEEK-8-PHASE-A-HANDOFF.md        # Phase A handoff (Week 8)
+│   ├── WEEK-4-7-VALIDATION-REPORT.md    # Week 4-7 validation
+│   ├── PACTS-COMPLETE-SPECIFICATION.md  # This document (v3.0)
+│   ├── PACTS-v3.0-IMPLEMENTATION-PLAN.md # Implementation roadmap
+│   ├── EDR.md                           # Enhanced Discovery & Reliability guide
+│   ├── UNIVERSAL-DISCOVERY-GUIDE.md     # Discovery patterns
+│   └── archive/                         # Historical docs (Week 8 cleanup)
+│       ├── week2/
+│       ├── sessions/
+│       ├── fixes/
+│       ├── specs/
+│       ├── releases/
+│       └── salesforce/
 ├── docker/
 │   ├── docker-compose.yml
 │   └── Dockerfile
