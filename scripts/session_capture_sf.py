@@ -27,27 +27,34 @@ async def main():
         print(f"  (No need to create any files manually!)")
         print(f"\n{'='*70}\n")
 
-        # Auto-detect successful login by waiting for non-login URL
+        # Auto-detect successful login by waiting for Lightning UI
         timeout = 300  # 5 minutes
         start_time = asyncio.get_event_loop().time()
 
+        print(f"[SF] Waiting for login + 2FA to complete...")
+
         while True:
-            await asyncio.sleep(2)
+            await asyncio.sleep(3)
             current_url = page.url
 
-            # Check if user successfully logged in (URL changed from login page)
-            if "login.salesforce.com" not in current_url and "salesforce.com" in current_url:
-                print(f"[SF] ✓ Login detected! (URL: {current_url[:60]}...)")
+            # Check for Lightning UI (indicates successful login + 2FA)
+            # Look for either .lightning.force.com or .my.salesforce.com
+            is_lightning = ".lightning.force.com" in current_url or ".my.salesforce.com" in current_url
+            not_on_login = "login.salesforce.com" not in current_url
+
+            if is_lightning and not_on_login:
+                print(f"[SF] ✓ Login + 2FA complete! (URL: {current_url[:60]}...)")
                 break
 
             # Timeout check
-            if asyncio.get_event_loop().time() - start_time > timeout:
+            elapsed = asyncio.get_event_loop().time() - start_time
+            if elapsed > timeout:
                 print(f"[SF] ✗ Timeout waiting for login ({timeout}s)")
                 await browser.close()
                 sys.exit(1)
 
         # Wait a bit more for session to fully establish
-        await asyncio.sleep(2)
+        await asyncio.sleep(3)
 
         # Save session
         await ctx.storage_state(path=str(SAVE_TO))
