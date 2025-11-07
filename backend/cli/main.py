@@ -66,6 +66,34 @@ def print_info(text: str):
     print(f"{Colors.BLUE}ℹ {text}{Colors.END}")
 
 
+def _clear_all_cache():
+    """
+    Clear all cache (postgres selector_cache + redis).
+
+    Week 8 Phase B: Cache management for clean test runs.
+    """
+    import subprocess
+
+    try:
+        # Clear postgres selector_cache table
+        subprocess.run([
+            "docker", "compose", "exec", "-T", "postgres",
+            "psql", "-U", "pacts", "-d", "pacts",
+            "-c", "TRUNCATE TABLE selector_cache;"
+        ], check=True, capture_output=True, text=True)
+
+        # Flush redis
+        subprocess.run([
+            "docker", "compose", "exec", "-T", "redis",
+            "redis-cli", "FLUSHALL"
+        ], check=True, capture_output=True, text=True)
+
+    except subprocess.CalledProcessError as e:
+        print_warning(f"Cache clear failed (non-critical): {e}")
+    except FileNotFoundError:
+        print_warning("docker-compose not found - cache not cleared (non-critical)")
+
+
 async def _run_pipeline_with_storage(state: RunState) -> RunState:
     """
     Run pipeline with storage initialization and cleanup.
@@ -501,7 +529,9 @@ def cli():
 @click.option('--headed/--headless', default=False, help='Run in headed mode (visible browser)')
 @click.option('--slow-mo', default=0, type=int, help='Slow motion delay in milliseconds')
 @click.option('--mcp/--no-mcp', default=False, help='Enable MCP Playwright integration')
-def test(req: str, url: Optional[str], headed: bool, slow_mo: int, mcp: bool):
+@click.option('--clear-cache', is_flag=True, help='Clear all cache (postgres + redis) before running test')
+@click.option('--no-cache', is_flag=True, help='Disable cache writes for this run (read-only mode)')
+def test(req: str, url: Optional[str], headed: bool, slow_mo: int, mcp: bool, clear_cache: bool, no_cache: bool):
     """
     Execute test from requirement specification.
 
@@ -518,6 +548,17 @@ def test(req: str, url: Optional[str], headed: bool, slow_mo: int, mcp: bool):
     print_header("PACTS - Autonomous Test Execution")
 
     try:
+        # Handle cache management flags
+        if clear_cache:
+            print("Clearing cache (postgres + redis)...")
+            _clear_all_cache()
+            print("✓ Cache cleared\n")
+
+        if no_cache:
+            print("Cache writes disabled for this run (read-only mode)\n")
+            import os
+            os.environ['PACTS_CACHE_WRITES_DISABLED'] = 'true'
+
         # Load requirement spec
         print("Step 1: Loading requirement specification...")
         spec, file_path = load_requirement_spec(req)
