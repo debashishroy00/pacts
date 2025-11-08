@@ -23,6 +23,8 @@ The world's first autonomous testing system with episodic memory and real-time o
 - **Scoped Element Discovery**: 100% accurate scoping (13 dialog resolutions across tests)
 - **Cache Management CLI**: `--clear-cache` and `--no-cache` flags for clean test runs
 - **Template Variables**: `{timestamp}` substitution for unique test data (prevents duplicates)
+- **Automated Session Management**: Auto-refresh expired Salesforce sessions with Lightning UI detection
+- **Direct Filename Testing**: Business-user friendly `pacts test salesforce_create_contact.txt` syntax
 - **100% Validation Success**: 6/6 tests (Wikipedia×3 + SF×3), 38/38 steps, 0 heals ✅
 
 **🚀 Dual-Layer Selector Cache (Days 8-9)**
@@ -63,6 +65,8 @@ The world's first autonomous testing system with episodic memory and real-time o
 - ✅ Planner UX Rules (modal/dropdown/tab pattern detection) **NEW**
 - ✅ Cache Management CLI (--clear-cache, --no-cache flags) **NEW**
 - ✅ Template Variables ({timestamp} for unique data) **NEW**
+- ✅ Salesforce Session Management (auto-refresh with Lightning UI detection) **NEW**
+- ✅ Business User Wrappers (pacts/pacts.bat with auto-session handling) **NEW**
 - ✅ Cache System (validated over 5 loops)
 - ✅ HealHistory (code ready, awaits healing event)
 - ✅ RunStorage (100% capture rate)

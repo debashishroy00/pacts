@@ -139,6 +139,18 @@ These features transform PACTS from a smart test executor into a **self-improvin
 - Prevents duplicate errors in Salesforce tests
 - Example: test.contact.{timestamp}@example.com
 
+**6. Automated Session Management** ✅ (Bonus Feature)
+- Auto-refresh expired Salesforce sessions (2-hour validity check)
+- Lightning UI detection (waits for App Launcher, not just URL)
+- Wrapper script integration (pacts/pacts.bat)
+- Zero manual steps for business users
+
+**7. Business User UX** ✅ (Bonus Feature)
+- Direct filename syntax: `pacts test salesforce_create_contact.txt`
+- Auto-detection of Salesforce tests
+- Simplified CLI with wrapper scripts
+- QUICKSTART.md for non-technical users
+
 #### Validation Results
 
 **Test Execution Summary**:
@@ -165,14 +177,20 @@ These features transform PACTS from a smart test executor into a **self-improvin
 - `metrics_collector.py` - Added Phase B tag parsing (SCOPE_RE, PLANNER_RE)
 - `requirements/salesforce_create_contact.txt` - Updated with {timestamp} template
 
-**Git Commits** (7 total on feature/phase-b-scope-planner branch):
-1. feat: Phase B Day 1 - Scope-first discovery + planner UX rules
-2. fix: Remove duplicate os import causing UnboundLocalError
-3. feat: Add cache management CLI options
-4. fix: Improve _clear_all_cache to work inside containers
-5. fix: Use storage module for cache clearing
-6. fix: Use direct DB connections for cache clear
-7. fix: Add {timestamp} template support
+**Git Commits** (13 total on feature/phase-b-scope-planner branch):
+1. feat(week8): Phase B Day 1 - Scope-first discovery + planner UX rules
+2. fix(week8): Remove duplicate os import causing UnboundLocalError in discovery
+3. feat(week8): Add cache management CLI options (--clear-cache, --no-cache)
+4. fix(week8): Improve _clear_all_cache to work inside containers
+5. fix(week8): Use storage module for cache clearing instead of subprocess
+6. fix(week8): Use direct DB connections for cache clear to avoid singleton issues
+7. fix(week8): Add {timestamp} template support to prevent duplicate Contact creation
+8. feat(ux): Simplify CLI to use direct test filenames for better workflow cohesion
+9. feat(ux): Auto-manage Salesforce sessions - eliminate manual refresh friction
+10. fix(ux): Implement host-based Salesforce session validation (Docker-compatible)
+11. fix(ux): Wait for actual Lightning UI elements instead of just URL
+12. fix(cli): Load Salesforce session file correctly
+13. chore: Remove debug output from pacts.bat wrapper
 
 ---
 

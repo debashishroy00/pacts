@@ -1,10 +1,9 @@
 {
   "permissions": {
     "allow": [
-      "Bash(git commit -m \"fix(ux): Enable delayed expansion for errorlevel in pacts.bat\n\nWindows batch files need setlocal enabledelayedexpansion and !errorlevel!\ninstead of %errorlevel% when checking exit codes inside IF blocks.\n\nAdded:\n- setlocal enabledelayedexpansion at file start\n- Changed all %errorlevel% to !errorlevel!\n- Added [DEBUG] output to verify Salesforce test detection\n\nThis fixes the issue where session check was never triggered.\")",
-      "Bash(git add scripts/session_capture_sf.py)",
-      "Bash(git commit -m \"fix(ux): Wait for Lightning UI instead of just URL change in session capture\n\nThe previous version closed browser too early because it detected URL change\nfrom login.salesforce.com before 2FA completed.\n\nNow waits for:\n- URL contains .lightning.force.com OR .my.salesforce.com (Lightning UI)\n- AND URL does NOT contain login.salesforce.com\n\nThis ensures browser stays open through entire 2FA flow until user reaches\nthe actual Salesforce home page.\n\nAlso increased polling interval from 2s to 3s and added clear status message.\")",
-      "Bash(git add -A)"
+      "Bash(git commit -m \"fix(ux): Wait for actual Lightning UI elements instead of just URL\n\nThe script was closing too early because Salesforce redirects to .my.salesforce.com\nURL before 2FA completes. Now waits for actual App Launcher button to appear,\nwhich only loads after full authentication.\n\nChanges:\n- Wait for URL change to SF domain\n- Then wait for App Launcher button selector\n- Shows ''Still waiting...'' message during 2FA step\n- Only closes browser after Lightning UI fully loads\n\nThis ensures browser stays open through entire 2FA flow.\")",
+      "Bash(git commit -m \"fix(cli): Load Salesforce session file correctly\n\nRemoved broken import of deleted sf_session_manager module.\nNow simply loads hitl/salesforce_auth.json if it exists.\n\nSession validity is checked by wrapper scripts before Docker launch,\nso CLI just needs to load the file.\")",
+      "Bash(git commit -m \"chore: Remove debug output from pacts.bat wrapper\n\nRemoved ''[DEBUG] Salesforce test detected'' message.\nSession check now runs silently unless session needs refresh.\")"
     ],
     "deny": [],
     "ask": []

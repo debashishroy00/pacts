@@ -4,18 +4,30 @@ URL: https://orgfarm-9a1de3d5e8-dev-ed.develop.my.salesforce.com
 
 Prerequisites: User must be logged in to Salesforce
 
+Test: Salesforce Create Account (via App Launcher; keyboard accept)
 Test Steps:
 1. Click "App Launcher"
-2. Fill "Search apps and items..." with "Contacts"
+2. Fill "Search apps and items..." with "Accounts"
 3. Press "Enter" on "Search apps and items..."
 4. Click "New"
+5. Fill "Account Name" with "AAA Insurance Test"
+6. Fill "Phone" with "555-0101"
+7. Fill "Website" with "https://example.com"
+8. Click "Save"
+
+Test: Ccreate new contact from the newly created Accounts
+Test Steps:
+1. Click Accounts tab
+2. Search for "AAA Insurance Test" Account
+3. Click on the hyperlink name of this Account
+4. Click "New Contact" button
 5. Fill "First Name" with "Meredith"
 6. Fill "Last Name" with "Seth"
 7. Fill "Email" with "test.contact.{timestamp}@example.com"
 8. Fill "Phone" with "555-1234"
 9. Click "Save"
 
-Expected: Successfully create one Contact in Salesforce
+Expected: Successfully create one Contact in Salesforce for the account
 
 Notes:
 - This test assumes user is already logged in
