@@ -2,7 +2,7 @@
 PACTS Generated Test
 ====================
 Requirement ID: salesforce_create_contact
-Generated: 2025-11-07 06:34:03
+Generated: 2025-11-08 04:48:30
 Verdict: PASS
 
 Discovery Strategies Used:
@@ -56,19 +56,19 @@ async def test_salesforce_create_contact():
         # Step 5: FILL First Name
         # Selector: input[name="firstName"]
         # Strategy: name_attr_fuzzy, Confidence: 0.92
-        await page.locator("input[name="firstName"]").fill("Test")
+        await page.locator("input[name="firstName"]").fill("Meredith")
         # Step 6: FILL Last Name
         # Selector: input[name="lastName"]
         # Strategy: name_attr_fuzzy, Confidence: 0.92
-        await page.locator("input[name="lastName"]").fill("Contact")
+        await page.locator("input[name="lastName"]").fill("Seth")
         # Step 7: FILL Email
-        # Selector: input#input-463
+        # Selector: input#input-503
         # Strategy: label_for, Confidence: 0.86
-        await page.locator("input#input-463").fill("test.contact.{{current_timestamp}}@example.com")
+        await page.locator("input#input-503").fill("test.contact.1762577168@example.com")
         # Step 8: FILL Phone
-        # Selector: input#input-416
+        # Selector: input#input-456
         # Strategy: label_for, Confidence: 0.86
-        await page.locator("input#input-416").fill("555-1234")
+        await page.locator("input#input-456").fill("555-1234")
         # Step 9: CLICK Save
         # Selector: role=button[name*="save"i] >> nth=0
         # Strategy: role_name_disambiguated, Confidence: 0.95

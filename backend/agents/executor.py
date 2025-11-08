@@ -11,6 +11,7 @@ from ..utils import ulog  # Week 8 EDR: Unified structured logging
 from ..telemetry.tracing import traced
 from ..mcp.mcp_client import USE_MCP
 from .execution_helpers import press_with_fallbacks, fill_with_activator, handle_spa_navigation
+from .dialog_sentinel import DialogSentinel  # Week 9 Phase C: Auto-close error dialogs
 
 logger = logging.getLogger(__name__)
 
