@@ -1,0 +1,40 @@
+#!/bin/bash
+# PACTS - Simple test runner for business users
+# Usage: ./pacts test salesforce_create_contact.txt
+#        ./pacts test salesforce_opportunity_postlogin.txt
+#        ./pacts test wikipedia_search.txt
+
+# Convert "test <filename>" to "test --req <filename>" for business users
+if [ "$1" = "test" ] && [ -n "$2" ] && [[ ! "$2" =~ ^-- ]]; then
+    # Second arg doesn't start with --, so it's a test name
+    TEST_NAME="$2"
+
+    # Check if this is a Salesforce test
+    if [[ "$TEST_NAME" == *"salesforce"* ]]; then
+        # Check session validity before launching Docker
+        python scripts/check_sf_session.py >/dev/null 2>&1
+        if [ $? -ne 0 ]; then
+            echo ""
+            echo "[PACTS] Salesforce session expired - refreshing automatically..."
+            echo ""
+
+            # Auto-refresh session
+            python scripts/session_capture_sf.py
+            if [ $? -ne 0 ]; then
+                echo ""
+                echo "[PACTS] Session refresh failed or cancelled"
+                exit 1
+            fi
+
+            echo ""
+            echo "[PACTS] Session refreshed successfully! Continuing with test..."
+            echo ""
+        fi
+    fi
+
+    shift 2  # Remove "test" and test name from args
+    docker compose run --rm pacts-runner bash -c "python -m backend.cli.main test --req $TEST_NAME $@"
+else
+    # Pass through as-is (user already using full CLI syntax)
+    docker compose run --rm pacts-runner bash -c "python -m backend.cli.main $@"
+fi

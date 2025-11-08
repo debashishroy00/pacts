@@ -101,7 +101,10 @@ async def discover_selector_cached(browser, intent: Dict[str, Any]) -> Optional[
 
     result = await discover_selector(browser, intent)
 
-    if result:
+    # Week 8 Phase B: Check if cache writes are disabled
+    cache_writes_disabled = os.getenv("PACTS_CACHE_WRITES_DISABLED", "false").lower() == "true"
+
+    if result and not cache_writes_disabled:
         # Cache successful discovery
         try:
             meta = result.get("meta", {})

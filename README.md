@@ -7,7 +7,7 @@ The world's first autonomous testing system with episodic memory and real-time o
 
 ---
 
-## 🎉 v3.0 Achievements (2025-11-06 - Week 8 Phase A Complete)
+## 🎉 v3.0 Achievements (2025-11-07 - Week 8 Phase A+B Complete)
 
 **🎯 Week 8 Phase A: Enhanced Discovery & Reliability (EDR)**
 - **8-Tier Discovery Hierarchy**: aria-label → aria-placeholder → name → placeholder → label-for → role-name → data-attr → id-class
@@ -16,6 +16,16 @@ The world's first autonomous testing system with episodic memory and real-time o
 - **Universal 3-Stage Readiness Gate**: dom-idle → element-visible → app-ready-hook
 - **Structured Logging (ulog)**: [PROFILE], [DISCOVERY], [CACHE], [READINESS], [RESULT] tags for observability
 - **100% Validation Success**: 4/4 tests, 29/29 steps, 0 heals (Wikipedia + 3 Salesforce tests)
+
+**🎯 Week 8 Phase B: Context & Planner Cohesion (Scope-First Discovery)**
+- **Planner UX Rules**: Auto-inject scopes for modal/dropdown/tab patterns (open_modal_scope, dropdown_selection, tab_navigation)
+- **Scope-First Discovery**: Generic container resolution (dialog → tabpanel → form → main → page)
+- **Scoped Element Discovery**: 100% accurate scoping (13 dialog resolutions across tests)
+- **Cache Management CLI**: `--clear-cache` and `--no-cache` flags for clean test runs
+- **Template Variables**: `{timestamp}` substitution for unique test data (prevents duplicates)
+- **Automated Session Management**: Auto-refresh expired Salesforce sessions with Lightning UI detection
+- **Direct Filename Testing**: Business-user friendly `pacts test salesforce_create_contact.txt` syntax
+- **100% Validation Success**: 6/6 tests (Wikipedia×3 + SF×3), 38/38 steps, 0 heals ✅
 
 **🚀 Dual-Layer Selector Cache (Days 8-9)**
 - **100-500x speedup** on cache hits (1-5ms vs 500ms full discovery)
@@ -35,11 +45,13 @@ The world's first autonomous testing system with episodic memory and real-time o
 - **100% capture rate**: 2/2 runs recorded, 6/6 artifacts linked
 - **Production telemetry** ready for Grafana/Prometheus
 
-**Key Metrics (Week 8 Phase A):**
-- **Discovery Success Rate**: 100% (29/29 steps, all tiers working) ✅
+**Key Metrics (Week 8 Phase A+B):**
+- **Discovery Success Rate**: 100% (38/38 steps, all tiers working) ✅
 - **Stable Selector Ratio**: 100% (all selectors marked stable=True) ✅
-- **Cache Hit Rate**: 100% (warm), 66.7% (overall including cold start) ✅
-- **Test Success Rate**: 100% (4/4 tests PASS, 0 heals) ✅
+- **Cache Hit Rate**: 100% (warm), 87.5% (overall including cold start) ✅
+- **Test Success Rate**: 100% (6/6 tests PASS, 0 heals) ✅
+- **Scope Resolution Accuracy**: 100% (13/13 dialog scopes resolved correctly) ✅
+- **Planner Rule Firing**: 100% (7/7 UX patterns detected and handled) ✅
 - **Discovery Speedup**: 100-500x on cache hits ✅
 - **Zero Regressions**: All legacy tests + new validations passing ✅
 
@@ -48,7 +60,13 @@ The world's first autonomous testing system with episodic memory and real-time o
 - ✅ Runtime Profile Detection (STATIC/DYNAMIC auto-detection)
 - ✅ Stable-Only Caching (zero volatile selectors cached)
 - ✅ Universal Readiness Gates (dom-idle + element-visible + app-ready)
-- ✅ Structured Logging (ulog with 5 log types)
+- ✅ Structured Logging (ulog with 5 log types + Phase B [SCOPE]/[PLANNER] tags)
+- ✅ Scope-First Discovery (dialog/tabpanel/form/main/page resolution) **NEW**
+- ✅ Planner UX Rules (modal/dropdown/tab pattern detection) **NEW**
+- ✅ Cache Management CLI (--clear-cache, --no-cache flags) **NEW**
+- ✅ Template Variables ({timestamp} for unique data) **NEW**
+- ✅ Salesforce Session Management (auto-refresh with Lightning UI detection) **NEW**
+- ✅ Business User Wrappers (pacts/pacts.bat with auto-session handling) **NEW**
 - ✅ Cache System (validated over 5 loops)
 - ✅ HealHistory (code ready, awaits healing event)
 - ✅ RunStorage (100% capture rate)

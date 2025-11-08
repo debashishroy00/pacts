@@ -1,0 +1,34 @@
+Test: Salesforce Create Contact (via App Launcher; keyboard accept)
+URL: https://orgfarm-9a1de3d5e8-dev-ed.develop.my.salesforce.com
+Prerequisites: User must be logged in to Salesforce
+
+Test: Salesforce Create Account (via App Launcher; keyboard accept)
+Test Steps:
+1. Click "App Launcher"
+2. Fill "Search apps and items..." with "Accounts"
+3. Press "Enter" on "Search apps and items..."
+4. Click "New"
+5. Fill "Account Name" with "AAA Insurance Test ${YYYYMMDDHHmmss}"
+6. Fill "Type" with "Customer – Direct"
+7. Fill "Industry" with "Insurance"
+8. Fill "Billing Country" with "United States"
+9. Fill "Phone" with "202-555-0145"
+10. Fill "Website" with "https://aaa-insurance.example"
+11. Click "Save"
+
+Test: Create new contact from the newly created Account
+Test Steps:
+1. Click Accounts tab
+2. Search for "AAA Insurance Test ${YYYYMMDDHHmmss}" Account
+3. Click the hyperlink name of this Account
+4. Click "New Contact" button
+5. Fill "First Name" with "Meredith"
+6. Fill "Last Name" with "Seth"
+7. Fill "Email" with "test.contact.${YYYYMMDDHHmmss}@example.com"
+8. Fill "Phone" with "202-555-0158"
+9. Click "Save"
+
+Expected: Successfully create one Contact in Salesforce for the account
+Notes:
+- Use --clear-cache --no-cache for clean runs
+- Set PACTS_DYNAMIC_IDLE_MS=10000 for Lightning hydration

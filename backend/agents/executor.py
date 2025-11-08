@@ -11,6 +11,7 @@ from ..utils import ulog  # Week 8 EDR: Unified structured logging
 from ..telemetry.tracing import traced
 from ..mcp.mcp_client import USE_MCP
 from .execution_helpers import press_with_fallbacks, fill_with_activator, handle_spa_navigation
+from .dialog_sentinel import DialogSentinel  # Week 9 Phase C: Auto-close error dialogs
 
 logger = logging.getLogger(__name__)
 
@@ -290,6 +291,9 @@ async def run(state: RunState) -> RunState:
     browser_config = state.context.get("browser_config", {})
     browser = await BrowserManager.get(config=browser_config)
 
+    # Week 9 Phase C: Initialize Dialog Sentinel (POC)
+    sentinel = DialogSentinel(browser.page)
+
     # state.plan is a property that reads from context["plan"]
     plan = state.plan
     if not plan:
@@ -309,6 +313,10 @@ async def run(state: RunState) -> RunState:
     selector = step.get("selector")
     action = step.get("action", "click")
     value = step.get("value")
+
+    # Week 9 Phase C POC: Check for stray error dialogs BEFORE starting step
+    # This clears any modals left over from previous steps
+    await sentinel.check_and_close()
 
     # MCP Actions Disabled (Phase A: Discovery-Only)
     # In Phase A, MCP only helps with discovery
@@ -473,6 +481,17 @@ async def run(state: RunState) -> RunState:
         # Action failed - mark as timeout for healing
         state.failure = Failure.timeout
         return state
+
+    # Week 9 Phase C POC: Check for error dialogs AFTER actions that can trigger saves/navigation
+    # This catches Salesforce validation errors (e.g., "Phone is required")
+    if action in ("click", "press"):
+        dialog_result = await sentinel.check_and_close()
+        if dialog_result:
+            # Error dialog was closed - action needs retry or healing
+            logger.warning(f"[SENTINEL] Dialog detected after {action}: {dialog_result.get('error_message', '')[:100]}")
+            # Mark as timeout so healing can retry with corrected data
+            state.failure = Failure.timeout
+            return state
 
     # Remember last successful selector for press-after-fill optimization
     browser.last_selector_ok = selector

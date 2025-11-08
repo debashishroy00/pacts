@@ -66,6 +66,42 @@ def print_info(text: str):
     print(f"{Colors.BLUE}ℹ {text}{Colors.END}")
 
 
+async def _clear_cache_async():
+    """
+    Clear all cache (postgres selector_cache + redis) using storage module.
+
+    Week 8 Phase B: Cache management for clean test runs.
+    Creates and destroys its own storage instance to avoid connection reuse issues.
+    """
+    import asyncpg
+    import redis.asyncio as redis_async
+
+    try:
+        # Direct postgres connection (don't use storage singleton)
+        conn = await asyncpg.connect(
+            host=os.getenv("DATABASE_HOST", "postgres"),
+            port=int(os.getenv("DATABASE_PORT", "5432")),
+            user=os.getenv("DATABASE_USER", "pacts"),
+            password=os.getenv("DATABASE_PASSWORD", "pacts"),
+            database=os.getenv("DATABASE_NAME", "pacts")
+        )
+
+        await conn.execute("TRUNCATE TABLE selector_cache")
+        await conn.close()
+
+        # Direct redis connection (don't use storage singleton)
+        redis_client = redis_async.Redis(
+            host=os.getenv("REDIS_HOST", "redis"),
+            port=int(os.getenv("REDIS_PORT", "6379")),
+            decode_responses=True
+        )
+        await redis_client.flushall()
+        await redis_client.aclose()
+
+    except Exception as e:
+        print_warning(f"Cache clear failed (non-critical): {e}")
+
+
 async def _run_pipeline_with_storage(state: RunState) -> RunState:
     """
     Run pipeline with storage initialization and cleanup.
@@ -299,39 +335,59 @@ def _display_mcp_status(status: dict):
 
 def discover_requirement_file(req_id: str) -> Optional[Path]:
     """
-    Discover requirement file by REQ-ID.
+    Discover requirement file by filename or REQ-ID.
+
+    Examples:
+    - "salesforce_create_contact.txt" → requirements/salesforce_create_contact.txt
+    - "salesforce_create_contact" → requirements/salesforce_create_contact.txt
+    - "wikipedia_search.txt" → requirements/wikipedia_search.txt
+    - "REQ-001" → requirements/REQ-001.txt (backward compatible)
 
     Searches in order:
-    1. requirements/{req_id}.txt (natural language)
-    2. requirements/{req_id}.xlsx
-    3. requirements/{req_id}.json
-    4. specs/{req_id}.json
-    5. specs/{req_id}.xlsx
+    1. Direct filename in requirements/ (with or without extension)
+    2. REQ-ID format in requirements/ and specs/
 
     Args:
-        req_id: Requirement ID (e.g., REQ-001) or file name pattern
+        req_id: Filename (e.g., "salesforce_create_contact.txt") or REQ-ID (e.g., "REQ-001")
 
     Returns:
         Path to file if found, None otherwise
     """
+    # Try direct filename in requirements/ directory first
+    requirements_dir = Path("requirements")
+
+    # If user provides filename with extension, use it directly
+    if "." in req_id:
+        direct_path = requirements_dir / req_id
+        if direct_path.exists():
+            return direct_path
+
+    # If no extension, try adding common extensions
+    req_id_lower = req_id.lower()
     search_paths = [
-        Path("requirements") / f"{req_id}.txt",  # Natural language (NEW)
-        Path("requirements") / f"{req_id}.xlsx",
-        Path("requirements") / f"{req_id}.json",
+        requirements_dir / f"{req_id}.txt",  # Exact with .txt
+        requirements_dir / f"{req_id}.json",
+        requirements_dir / f"{req_id}.xlsx",
+        requirements_dir / f"{req_id_lower}.txt",  # Lowercase variants
+        requirements_dir / f"{req_id_lower}.json",
+        requirements_dir / f"{req_id_lower}.xlsx",
+        # REQ-ID format in specs/ (backward compatible)
         Path("specs") / f"{req_id}.json",
         Path("specs") / f"{req_id}.xlsx",
-        # Also try lowercase versions
-        Path("specs") / f"{req_id.lower()}.json",
-        Path("requirements") / f"{req_id.lower()}.txt",
-        # Try pattern matching (e.g., saucedemo_login.json for REQ-LOGIN-001)
+        Path("specs") / f"{req_id_lower}.json",
     ]
+
+    # Try exact matches
+    for path in search_paths:
+        if path.exists():
+            return path
 
     # Also search for partial matches in specs/
     specs_dir = Path("specs")
     if specs_dir.exists():
         for file in specs_dir.glob("*.json"):
             # Check if req_id appears in filename
-            if req_id.lower() in file.stem.lower():
+            if req_id_lower in file.stem.lower():
                 return file
 
             # Check if req_id matches inside JSON file
@@ -342,10 +398,6 @@ def discover_requirement_file(req_id: str) -> Optional[Path]:
                         return file
             except:
                 pass
-
-    for path in search_paths:
-        if path.exists():
-            return path
 
     return None
 
@@ -501,7 +553,10 @@ def cli():
 @click.option('--headed/--headless', default=False, help='Run in headed mode (visible browser)')
 @click.option('--slow-mo', default=0, type=int, help='Slow motion delay in milliseconds')
 @click.option('--mcp/--no-mcp', default=False, help='Enable MCP Playwright integration')
-def test(req: str, url: Optional[str], headed: bool, slow_mo: int, mcp: bool):
+@click.option('--clear-cache', is_flag=True, help='Clear all cache (postgres + redis) before running test')
+@click.option('--no-cache', is_flag=True, help='Disable cache writes for this run (read-only mode)')
+@click.option('--refresh-session', is_flag=True, help='Force Salesforce session refresh (interactive login)')
+def test(req: str, url: Optional[str], headed: bool, slow_mo: int, mcp: bool, clear_cache: bool, no_cache: bool, refresh_session: bool):
     """
     Execute test from requirement specification.
 
@@ -518,6 +573,17 @@ def test(req: str, url: Optional[str], headed: bool, slow_mo: int, mcp: bool):
     print_header("PACTS - Autonomous Test Execution")
 
     try:
+        # Handle cache management flags
+        if clear_cache:
+            print("Clearing cache (postgres + redis)...")
+            asyncio.run(_clear_cache_async())
+            print("✓ Cache cleared\n")
+
+        if no_cache:
+            print("Cache writes disabled for this run (read-only mode)\n")
+            import os
+            os.environ['PACTS_CACHE_WRITES_DISABLED'] = 'true'
+
         # Load requirement spec
         print("Step 1: Loading requirement specification...")
         spec, file_path = load_requirement_spec(req)
@@ -566,7 +632,8 @@ def test(req: str, url: Optional[str], headed: bool, slow_mo: int, mcp: bool):
         mcp_status = _check_mcp_status(mcp)
         _display_mcp_status(mcp_status)
 
-        # Check for saved Salesforce session
+        # Check for saved Salesforce session (Week 8 Phase B)
+        # Session validity is checked by wrapper scripts BEFORE Docker launch
         import os
         storage_state_path = "hitl/salesforce_auth.json"
         storage_state = storage_state_path if os.path.exists(storage_state_path) else None

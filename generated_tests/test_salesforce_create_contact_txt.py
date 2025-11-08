@@ -1,12 +1,13 @@
 """
 PACTS Generated Test
 ====================
-Requirement ID: salesforce_create_records
-Generated: 2025-11-07 05:54:30
+Requirement ID: salesforce_create_contact.txt
+Generated: 2025-11-08 04:25:49
 Verdict: PASS
 
 Discovery Strategies Used:
   - label_for
+  - name_attr_fuzzy
   - placeholder_attr
   - role_name
   - role_name_disambiguated
@@ -17,13 +18,13 @@ import asyncio
 from playwright.async_api import async_playwright
 
 
-async def test_salesforce_create_records():
+async def test_salesforce_create_contact_txt():
     """
-    Test for requirement: salesforce_create_records
+    Test for requirement: salesforce_create_contact.txt
 
     Test Details:
     - URL: https://orgfarm-9a1de3d5e8-dev-ed.develop.my.salesforce.com
-    - Steps: 8
+    - Steps: 9
     - Verdict: pass
     
 
@@ -43,7 +44,7 @@ async def test_salesforce_create_records():
         # Step 2: FILL Search apps and items...
         # Selector: input[placeholder="Search apps and items..."]
         # Strategy: placeholder_attr, Confidence: 0.9
-        await page.locator("input[placeholder="Search apps and items..."]").fill("Accounts")
+        await page.locator("input[placeholder="Search apps and items..."]").fill("Contacts")
         # Step 3: PRESS Search apps and items...
         # Selector: input[placeholder="Search apps and items..."]
         # Strategy: placeholder_attr, Confidence: 0.9
@@ -52,19 +53,23 @@ async def test_salesforce_create_records():
         # Selector: role=button[name*="new"i]
         # Strategy: role_name, Confidence: 0.95
         await page.locator("role=button[name*="new"i]").click()
-        # Step 5: FILL Account Name
-        # Selector: input#input-590
+        # Step 5: FILL First Name
+        # Selector: input[name="firstName"]
+        # Strategy: name_attr_fuzzy, Confidence: 0.92
+        await page.locator("input[name="firstName"]").fill("Meredith")
+        # Step 6: FILL Last Name
+        # Selector: input[name="lastName"]
+        # Strategy: name_attr_fuzzy, Confidence: 0.92
+        await page.locator("input[name="lastName"]").fill("Seth")
+        # Step 7: FILL Email
+        # Selector: input#input-483
         # Strategy: label_for, Confidence: 0.86
-        await page.locator("input#input-590").fill("ACME Test Account")
-        # Step 6: FILL Phone
-        # Selector: input#input-593
+        await page.locator("input#input-483").fill("test.contact.1762575807@example.com")
+        # Step 8: FILL Phone
+        # Selector: input#input-436
         # Strategy: label_for, Confidence: 0.86
-        await page.locator("input#input-593").fill("555-0101")
-        # Step 7: FILL Website
-        # Selector: input#input-607
-        # Strategy: label_for, Confidence: 0.86
-        await page.locator("input#input-607").fill("https://example.com")
-        # Step 8: CLICK Save
+        await page.locator("input#input-436").fill("555-1234")
+        # Step 9: CLICK Save
         # Selector: role=button[name*="save"i] >> nth=0
         # Strategy: role_name_disambiguated, Confidence: 0.95
         await page.locator("role=button[name*="save"i] >> nth=0").click()
@@ -72,4 +77,4 @@ async def test_salesforce_create_records():
 
 
 if __name__ == "__main__":
-    asyncio.run(test_salesforce_create_records())
+    asyncio.run(test_salesforce_create_contact_txt())
