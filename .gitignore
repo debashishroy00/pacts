@@ -93,6 +93,7 @@ temp/
 
 # HITL (Human-in-the-Loop) temporary files
 hitl/salesforce_auth.json
+scripts/hitl/salesforce_auth.json
 hitl/continue.ok
 hitlcontinue.ok
 nul
