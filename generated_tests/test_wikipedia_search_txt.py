@@ -1,8 +1,8 @@
 """
 PACTS Generated Test
 ====================
-Requirement ID: wikipedia_search
-Generated: 2025-11-07 21:13:55
+Requirement ID: wikipedia_search.txt
+Generated: 2025-11-07 21:13:43
 Verdict: PASS
 
 Discovery Strategies Used:
@@ -14,9 +14,9 @@ import asyncio
 from playwright.async_api import async_playwright
 
 
-async def test_wikipedia_search():
+async def test_wikipedia_search_txt():
     """
-    Test for requirement: wikipedia_search
+    Test for requirement: wikipedia_search.txt
 
     Test Details:
     - URL: https://en.wikipedia.org
@@ -45,4 +45,4 @@ async def test_wikipedia_search():
 
 
 if __name__ == "__main__":
-    asyncio.run(test_wikipedia_search())
+    asyncio.run(test_wikipedia_search_txt())

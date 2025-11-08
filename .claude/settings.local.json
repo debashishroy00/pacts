@@ -1,8 +1,10 @@
 {
   "permissions": {
     "allow": [
-      "Bash(chmod +x pacts)",
-      "Bash(git add pacts pacts.bat QUICKSTART.md)"
+      "Bash(git commit -m \"fix(ux): Enable delayed expansion for errorlevel in pacts.bat\n\nWindows batch files need setlocal enabledelayedexpansion and !errorlevel!\ninstead of %errorlevel% when checking exit codes inside IF blocks.\n\nAdded:\n- setlocal enabledelayedexpansion at file start\n- Changed all %errorlevel% to !errorlevel!\n- Added [DEBUG] output to verify Salesforce test detection\n\nThis fixes the issue where session check was never triggered.\")",
+      "Bash(git add scripts/session_capture_sf.py)",
+      "Bash(git commit -m \"fix(ux): Wait for Lightning UI instead of just URL change in session capture\n\nThe previous version closed browser too early because it detected URL change\nfrom login.salesforce.com before 2FA completed.\n\nNow waits for:\n- URL contains .lightning.force.com OR .my.salesforce.com (Lightning UI)\n- AND URL does NOT contain login.salesforce.com\n\nThis ensures browser stays open through entire 2FA flow until user reaches\nthe actual Salesforce home page.\n\nAlso increased polling interval from 2s to 3s and added clear status message.\")",
+      "Bash(git add -A)"
     ],
     "deny": [],
     "ask": []

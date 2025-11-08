@@ -2,7 +2,7 @@ import asyncio, os, sys, json
 from pathlib import Path
 from playwright.async_api import async_playwright
 
-SAVE_TO = Path("hitl/salesforce_auth.json")  # same file PACTS expects
+SAVE_TO = Path("hitl/salesforce_auth.json")
 URL = os.getenv("SF_LOGIN_URL", "").strip() or "https://login.salesforce.com"
 SLOW_MO = int(os.getenv("SF_SLOW_MO", "1000"))
 
@@ -37,14 +37,22 @@ async def main():
             await asyncio.sleep(3)
             current_url = page.url
 
-            # Check for Lightning UI (indicates successful login + 2FA)
-            # Look for either .lightning.force.com or .my.salesforce.com
-            is_lightning = ".lightning.force.com" in current_url or ".my.salesforce.com" in current_url
-            not_on_login = "login.salesforce.com" not in current_url
+            # Wait for Lightning UI to actually load (not just URL change)
+            # Check for specific Lightning elements that only appear after full login
+            is_on_sf_domain = ".my.salesforce.com" in current_url or ".lightning.force.com" in current_url
+            not_on_login_page = "login.salesforce.com" not in current_url
 
-            if is_lightning and not_on_login:
-                print(f"[SF] ✓ Login + 2FA complete! (URL: {current_url[:60]}...)")
-                break
+            if is_on_sf_domain and not_on_login_page:
+                # Additional check: Wait for App Launcher or other Lightning UI elements
+                try:
+                    # Wait for Lightning UI to fully load (App Launcher button)
+                    await page.wait_for_selector('button[title*="App Launcher"], button.appLauncher', timeout=5000)
+                    print(f"[SF] ✓ Login + 2FA complete! (URL: {current_url[:60]}...)")
+                    break
+                except:
+                    # App launcher not found yet, keep waiting (might still be in 2FA)
+                    print(f"[SF] Still waiting (detected URL change but Lightning UI not ready)...")
+                    pass
 
             # Timeout check
             elapsed = asyncio.get_event_loop().time() - start_time
