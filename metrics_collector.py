@@ -17,6 +17,8 @@ FAIL_RE = re.compile(r"\[RESULT\]\s*status=FAIL")
 # Week 8 Phase B: Scope-first discovery tags
 SCOPE_RE = re.compile(r"\[SCOPE\].*?resolved=(?P<type>dialog|tabpanel|form|main|page)")
 PLANNER_RE = re.compile(r"\[PLANNER\].*?rule=(?P<rule>\w+)")
+# Week 9 Phase C: Dialog Sentinel tags
+SENTINEL_RE = re.compile(r"\[SENTINEL\].*?action=(?P<action>detected|close_button|esc_fallback)")
 
 def parse_log(path):
     stats = {
@@ -32,6 +34,8 @@ def parse_log(path):
         # Phase B metrics
         "scope_resolutions": Counter(),  # dialog, tabpanel, form, main, page
         "planner_rules_fired": Counter(),  # open_modal_scope, dropdown_selection, tab_navigation
+        # Phase C metrics
+        "sentinel_actions": Counter(),  # detected, close_button, esc_fallback
     }
     with open(path, "r", encoding="utf-8", errors="ignore") as f:
         for line in f:
@@ -64,6 +68,10 @@ def parse_log(path):
             m = PLANNER_RE.search(line)
             if m:
                 stats["planner_rules_fired"][m.group("rule")] += 1
+            # Phase C: sentinel action tracking
+            m = SENTINEL_RE.search(line)
+            if m:
+                stats["sentinel_actions"][m.group("action")] += 1
     return stats
 
 def collect():
@@ -78,6 +86,7 @@ def collect():
         profiles_counter = Counter()
         scope_counter = Counter()
         planner_counter = Counter()
+        sentinel_counter = Counter()
         logs = [os.path.join(app_dir, p) for p in os.listdir(app_dir) if p.endswith(".log")]
         for lp in logs:
             s = parse_log(lp)
@@ -88,17 +97,21 @@ def collect():
                     scope_counter.update(v)
                 elif k == "planner_rules_fired":
                     planner_counter.update(v)
+                elif k == "sentinel_actions":
+                    sentinel_counter.update(v)
                 else:
                     agg[k] += v
         agg["profiles"] = dict(profiles_counter)
         agg["scope_resolutions"] = dict(scope_counter)
         agg["planner_rules_fired"] = dict(planner_counter)
+        agg["sentinel_actions"] = dict(sentinel_counter)
         agg["num_runs"] = len(logs)
         per_app[app] = dict(agg)
     overall = defaultdict(int)
     overall_profiles = Counter()
     overall_scope = Counter()
     overall_planner = Counter()
+    overall_sentinel = Counter()
     for app, s in per_app.items():
         for k, v in s.items():
             if k == "profiles":
@@ -107,11 +120,14 @@ def collect():
                 overall_scope.update(v)
             elif k == "planner_rules_fired":
                 overall_planner.update(v)
+            elif k == "sentinel_actions":
+                overall_sentinel.update(v)
             elif isinstance(v, int):
                 overall[k] += v
     overall["profiles"] = dict(overall_profiles)
     overall["scope_resolutions"] = dict(overall_scope)
     overall["planner_rules_fired"] = dict(overall_planner)
+    overall["sentinel_actions"] = dict(overall_sentinel)
     return per_app, overall
 
 def compute_metrics(overall):
