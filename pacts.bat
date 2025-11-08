@@ -10,9 +10,8 @@ if "%1"=="test" (
     REM Check if this is a Salesforce test using Python (more reliable than findstr)
     python -c "import sys; sys.exit(0 if 'salesforce' in '%2'.lower() else 1)" >nul 2>&1
     if !errorlevel!==0 (
-        echo [DEBUG] Salesforce test detected: %2
         REM Salesforce test - check session validity first
-        python scripts\check_sf_session.py
+        python scripts\check_sf_session.py >nul 2>&1
         if !errorlevel! neq 0 (
             echo.
             echo [PACTS] Salesforce session expired - refreshing automatically...
