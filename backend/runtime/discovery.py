@@ -99,6 +99,7 @@ STRATEGIES = [
     "youtube_video",      # YouTube video result detection
     "reddit_search",      # Reddit search box detection
     "booking_destination",  # Booking.com destination field
+    "booking_autocomplete",  # Booking.com autocomplete dropdown
     # Legacy strategies (backwards compatibility)
     "relational_css",
     "shadow_pierce",
@@ -1208,6 +1209,51 @@ async def _try_booking_destination(browser, intent) -> Optional[Dict[str, Any]]:
 
     return None
 
+async def _try_booking_autocomplete(browser, intent) -> Optional[Dict[str, Any]]:
+    """Phase 4a: Universal autocomplete - returns first listbox option using ARIA roles"""
+    name = (intent.get("element") or intent.get("intent") or "").strip().lower()
+    action = intent.get("action", "").lower()
+
+    # Only apply to autocomplete/suggestion patterns on click actions
+    if action != "click" or not any(kw in name for kw in ["autocomplete", "suggestion", "first", "option"]):
+        return None
+
+    try:
+        # Look for ARIA listbox with options (universal, works for any autocomplete)
+        listbox = browser.page.get_by_role("listbox").first
+        if await listbox.count() > 0:
+            # Wait briefly for options to render
+            await browser.page.wait_for_timeout(200)
+
+            # Check if listbox has visible options
+            options = listbox.get_by_role("option")
+            option_count = await options.count()
+
+            if option_count > 0:
+                # Check if first option is visible
+                first_option = options.first
+                try:
+                    await first_option.wait_for(state="visible", timeout=2000)
+                    logger.info(f"[Discovery] Phase 4a: Found autocomplete with {option_count} options, returning first")
+                    # Return selector for first option in the listbox
+                    # Use Playwright's role selector - completely generic, no hardcoding
+                    return {
+                        "selector": "role=listbox >> role=option >> nth=0",
+                        "score": 0.96,
+                        "meta": {
+                            "strategy": "autocomplete_first_option_aria",
+                            "name": name,
+                            "option_count": option_count
+                        }
+                    }
+                except Exception:
+                    pass  # First option not visible yet
+
+    except Exception as e:
+        logger.debug(f"[Discovery] Autocomplete option strategy failed: {e}")
+
+    return None
+
 async def _try_fallback_css(browser, intent) -> Optional[Dict[str, Any]]:
     return None
 
@@ -1230,6 +1276,7 @@ STRATEGY_FUNCS = {
     "youtube_video": _try_youtube_video,
     "reddit_search": _try_reddit_search,
     "booking_destination": _try_booking_destination,
+    "booking_autocomplete": _try_booking_autocomplete,
     "relational_css": _try_relational_css,
     "shadow_pierce": _try_shadow_pierce,
     "fallback_css": _try_fallback_css,
