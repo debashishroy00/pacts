@@ -503,17 +503,20 @@ def display_execution_results(result: RunState):
     """Display execution results in user-friendly format."""
     print_header("EXECUTION RESULTS")
 
-    verdict = result.verdict or "unknown"
+    verdict = (result.verdict or "unknown").upper()  # Normalize to uppercase
 
     # Verdict with color + structured logging for metrics
     from backend.utils import ulog
 
-    if verdict == "pass":
+    if verdict == "PASS":
         print_success(f"Verdict: PASS")
         ulog.result(passed=True)
-    elif verdict == "partial":
+    elif verdict == "PARTIAL":
         print_warning(f"Verdict: PARTIAL")
         ulog.result(passed=False)  # Partial = not fully passed
+    elif verdict == "BLOCKED":
+        print_warning(f"Verdict: BLOCKED")
+        ulog.result(passed=False)
     else:
         print_error(f"Verdict: FAIL")
         ulog.result(passed=False)
@@ -684,14 +687,19 @@ def test(req: str, url: Optional[str], headed: bool, slow_mo: int, mcp: bool, cl
         # Display results
         display_execution_results(final_state)
 
-        # Exit with appropriate code
-        if final_state.verdict == "pass":
+        # Exit with appropriate code (case-insensitive comparison)
+        verdict_upper = (final_state.verdict or "").upper()
+        if verdict_upper == "PASS":
             print()
             print_success("Test execution completed successfully!")
             sys.exit(0)
-        elif final_state.verdict == "partial":
+        elif verdict_upper == "PARTIAL":
             print()
             print_warning("Test execution partially completed.")
+            sys.exit(1)
+        elif verdict_upper == "BLOCKED":
+            print()
+            print_warning("Test execution blocked (CAPTCHA/challenge detected).")
             sys.exit(1)
         else:
             print()

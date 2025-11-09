@@ -97,3 +97,7 @@ scripts/hitl/salesforce_auth.json
 hitl/continue.ok
 hitlcontinue.ok
 nul
+
+# v3.1s: Generated test files
+generated_tests/
+artifacts/

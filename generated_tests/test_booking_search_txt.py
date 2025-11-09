@@ -2,11 +2,11 @@
 PACTS Generated Test
 ====================
 Requirement ID: booking_search.txt
-Generated: 2025-11-09 02:39:23
+Generated: 2025-11-09 02:54:50
 Verdict: FAIL
 
 Discovery Strategies Used:
-  - booking_destination_combobox
+  - booking_destination_canonical
   - failed
 
 """
@@ -35,13 +35,13 @@ async def test_booking_search_txt():
         await page.goto("https://www.booking.com")
 
         # Step 1: FILL Destination
-        # Selector: role=combobox[name=/destination|where are you going/i]
-        # Strategy: booking_destination_combobox, Confidence: 0.94
-        await page.locator("role=combobox[name=/destination|where are you going/i]").fill("Paris")
+        # Selector: input[name="ss"]
+        # Strategy: booking_destination_canonical, Confidence: 0.96
+        await page.locator("input[name="ss"]").fill("Paris")
         # Step 2: CLICK Autocomplete
-        # Selector: [data-testid*="autocomplete"]
+        # Selector: DISCOVERY_FAILED
         # Strategy: failed, Confidence: 0.0
-        await page.locator("[data-testid*="autocomplete"]").click()
+        await page.locator("DISCOVERY_FAILED").click()
         # Step 3: CLICK Search
         # Selector: 
         # Strategy: , Confidence: 

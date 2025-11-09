@@ -2,6 +2,7 @@ from __future__ import annotations
 from typing import Dict, Any, Optional
 import logging
 import re
+import time
 from ..graph.state import RunState, Failure
 from ..runtime.browser_manager import BrowserManager
 from ..runtime.policies import five_point_gate
@@ -12,6 +13,7 @@ from ..telemetry.tracing import traced
 from ..mcp.mcp_client import USE_MCP
 from .execution_helpers import press_with_fallbacks, fill_with_activator, handle_spa_navigation
 from .dialog_sentinel import DialogSentinel  # Week 9 Phase C: Auto-close error dialogs
+from ..runtime.launch_stealth import detect_captcha_or_block  # v3.1s: Blocked page detection
 
 logger = logging.getLogger(__name__)
 
@@ -137,6 +139,72 @@ async def _universal_readiness_gate(browser, selector: str, action: Optional[str
     except Exception as e:
         logger.error(f"[READINESS] ❌ FAILED: {e}")
         return False
+
+
+async def _detect_and_capture_blocked(browser, state: RunState) -> bool:
+    """
+    v3.1s: Detect if current page is blocked/challenged (CAPTCHA, chal_t, etc.).
+
+    If blocked, captures screenshot + HTML and updates state.
+
+    Args:
+        browser: BrowserManager instance
+        state: RunState to update with blocked info
+
+    Returns:
+        bool: True if page is blocked, False otherwise
+    """
+    page = browser.page
+
+    # Call stealth module's detection
+    is_blocked, signature = await detect_captcha_or_block(page)
+
+    if is_blocked:
+        logger.warning(f"⛔ [BLOCKED] Page blocked: {signature}")
+
+        # Capture forensics
+        try:
+            from pathlib import Path
+            artifacts_dir = Path("artifacts")
+            artifacts_dir.mkdir(exist_ok=True)
+
+            timestamp = int(time.time())
+            req_id = state.req_id
+
+            screenshot_path = artifacts_dir / f"blocked_{req_id}_{timestamp}.png"
+            html_path = artifacts_dir / f"blocked_{req_id}_{timestamp}.html"
+
+            # Capture screenshot
+            await page.screenshot(path=str(screenshot_path), full_page=True)
+
+            # Capture HTML
+            html_content = await page.content()
+            with open(html_path, "w", encoding="utf-8") as f:
+                f.write(html_content)
+
+            logger.warning(f"[BLOCKED] Captured forensics: {screenshot_path}")
+
+            # Update state with blocked info
+            if "blocked_pages" not in state.context:
+                state.context["blocked_pages"] = []
+
+            state.context["blocked_pages"].append({
+                "url": page.url,
+                "reason": signature,
+                "screenshot": str(screenshot_path),
+                "html": str(html_path),
+                "timestamp": timestamp
+            })
+
+            # Set blocked verdict
+            state["verdict"] = "BLOCKED"
+
+        except Exception as e:
+            logger.error(f"[BLOCKED] Failed to capture forensics: {e}")
+
+        return True
+
+    return False
 
 
 async def _perform_action(browser, action: str, selector: str, value: Optional[str] = None) -> bool:
@@ -502,6 +570,15 @@ async def run(state: RunState) -> RunState:
             except Exception:
                 pass
             return state
+
+    # v3.1s: Check for blocked/challenged page FIRST (before readiness gates)
+    # Blocked pages won't have normal elements ready, so check this before validation
+    is_blocked = await _detect_and_capture_blocked(browser, state)
+    if is_blocked:
+        # Verdict already set in detection function
+        # Skip remaining steps by setting step_idx to end (use .plan property)
+        state.step_idx = len(state.plan)
+        return state
 
     # Week 8 EDR: Universal 3-stage readiness gate (replaces SF-specific check)
     # Phase 4a: Pass action for action-aware visibility policy (fill allows hidden)

@@ -1057,31 +1057,22 @@ async def _try_shadow_pierce(browser, intent) -> Optional[Dict[str, Any]]:
     return None
 
 async def _try_youtube_video(browser, intent) -> Optional[Dict[str, Any]]:
-    """Phase 4a: YouTube-specific video result detection"""
-    name = (intent.get("element") or intent.get("intent") or "").strip().lower()
+    """
+    Phase 4a: YouTube-specific video result detection (DEPRECATED - needs generic ordinal support)
 
-    # Only apply to video/result patterns
-    if not any(kw in name for kw in ["video", "result", "first"]):
-        return None
+    TODO v3.1s: This hardcoded approach doesn't scale. The real issue is:
+    - User says: "Click first video result"
+    - Planner generates: element="First Result" (generic name, no actual match)
+    - Discovery fails because no element is literally named "First Result"
 
-    try:
-        # YouTube video results have id="video-title" links
-        video_links = browser.page.locator('a#video-title')
-        count = await video_links.count()
+    Solution: Implement generic ordinal/positional support in planner:
+    - Detect ordinal keywords: "first", "second", "third", "last", "nth"
+    - Generate selector pattern: role=link >> nth=0 (for "first")
+    - Or use region hints: within="search results" + ordinal=0
 
-        if count > 0:
-            logger.info(f"[Discovery] Phase 4a: Found {count} YouTube video results")
-            # First video result
-            first_video = video_links.first
-            if await first_video.is_visible():
-                return {
-                    "selector": "a#video-title >> nth=0",
-                    "score": 0.94,
-                    "meta": {"strategy": "youtube_video", "name": name, "count": count}
-                }
-    except Exception as e:
-        logger.debug(f"[Discovery] YouTube video strategy failed: {e}")
-
+    This belongs in Task 3 (Execution & Readiness) as a planner enhancement.
+    """
+    # Disabled - returning None to force discovery to use generic strategies
     return None
 
 async def _try_reddit_search(browser, intent) -> Optional[Dict[str, Any]]:
@@ -1338,6 +1329,70 @@ async def discover_selector(browser, intent) -> Optional[Dict[str, Any]]:
         except Exception as e:
             logger.warning(f"[SCOPE] Phase B: Container resolution failed: {e}, using page scope")
             scope_container = browser.page
+
+    # ═══════════════════════════════════════════════════════════════════════════════
+    # v3.1s: Ordinal-Based Selection (PRIORITY 0 - before all other strategies)
+    # ═══════════════════════════════════════════════════════════════════════════════
+    ordinal_index = intent.get("ordinal")
+    if ordinal_index is not None:
+        logger.info(f"[Discovery] 🎯 Ordinal selection mode: index={ordinal_index}")
+
+        element_type = intent.get("element_type")
+        element_hint = intent.get("element_hint")
+
+        # Build role-based selector based on element type
+        role_mapping = {
+            'video': 'link',  # YouTube videos are links
+            'result': 'link',  # Search results are typically links
+            'link': 'link',
+            'button': 'button',
+            'item': 'listitem',
+            'card': 'article',
+            'article': 'article',
+            'post': 'article',
+            'image': 'img',
+            'thumbnail': 'img',
+            'product': 'link',
+            'option': 'option',
+            'row': 'row',
+            'entry': 'listitem'
+        }
+
+        role = role_mapping.get(element_type, 'link')  # Default to link for generic results
+
+        try:
+            base_container = scope_container or browser.page
+
+            # Try role-based locator first
+            candidates = base_container.get_by_role(role)
+            count = await candidates.count()
+
+            if count > ordinal_index:
+                nth_element = candidates.nth(ordinal_index)
+                if await nth_element.is_visible(timeout=2000):
+                    # Build selector string
+                    selector = f"[role='{role}'] >> nth={ordinal_index}"
+                    if scope_container:
+                        selector = f"/* within scope */ {selector}"
+
+                    logger.info(f"[Discovery] ✅ Ordinal match: Found {element_type or 'element'} #{ordinal_index + 1} (role={role}, total={count})")
+
+                    return {
+                        "selector": selector,
+                        "score": 0.95,  # High confidence for ordinal matches
+                        "meta": {
+                            "strategy": "ordinal_position",
+                            "ordinal": ordinal_index,
+                            "element_type": element_type,
+                            "role": role,
+                            "total_count": count,
+                            "stable": False  # Ordinal selectors are volatile
+                        }
+                    }
+
+        except Exception as e:
+            logger.debug(f"[Discovery] Ordinal strategy failed: {e}")
+            # Fall through to regular strategies
 
     # PRIORITY 0: Dialog-scoped discovery for Salesforce App Launcher (legacy)
     # TODO: Migrate this to use generic scope_container above

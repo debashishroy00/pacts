@@ -144,7 +144,8 @@ async def run(state: RunState) -> RunState:
         state.step_idx += 1
         state.context["navigation_occurred"] = False  # Clear flag
         heal_event["actions"].append("navigation_success")
-        state.heal_events.append(heal_event)
+        # LangGraph: reassign instead of append
+        state.heal_events = (state.heal_events or []) + [heal_event]
         return state
 
     if state.failure in [Failure.timeout, Failure.not_unique]:
@@ -189,11 +190,33 @@ async def run(state: RunState) -> RunState:
             )
             new_selector = stable_first[0]
 
-            # Week 5: Detect no-progress loop (same selector returned)
+            # v3.1s Task 4: Enhanced identical selector guard
             if new_selector == selector:
                 logger.warning(f"[HEAL] ⚠️ No progress: identical selector ({new_selector[:60]})")
                 heal_event["actions"].append("no_progress_same_selector")
 
+                # Check if we've seen this selector before in previous heal rounds
+                identical_count = sum(1 for evt in state.heal_events
+                                     if evt.get("new_selector") == selector or
+                                        "no_progress_same_selector" in evt.get("actions", []))
+
+                if identical_count >= 1:
+                    # We've already tried this selector - stop immediately
+                    logger.warning(f"[HEAL] 🛑 Repeated identical selector (x{identical_count + 1}) - stopping heal loop")
+                    heal_event["actions"].append("repeated_identical_guard_triggered")
+                    heal_event["identical_count"] = identical_count + 1
+                    heal_event["success"] = False
+
+                    state.context["rca_detail"] = f"Selector '{selector[:100]}' repeatedly failed validation. Element may not be actionable or discovery is stuck."
+
+                    # CRITICAL: LangGraph requires reassignment for list changes
+                    state.heal_events = (state.heal_events or []) + [heal_event]
+
+                    # Force exit
+                    state.heal_round = max_heal_rounds
+                    return state
+
+                # First time seeing identical selector - try escalation once
                 # Phase 4a: Escalate for fill actions (try ensure_fillable activation)
                 if intent.get("action") == "fill":
                     try:
@@ -206,11 +229,26 @@ async def run(state: RunState) -> RunState:
                         heal_event["actions"].append("escalation_ensure_fillable")
                     except Exception as e:
                         logger.debug(f"[HEAL] ensure_fillable escalation failed: {e}")
-                        # Bail - no point retrying identical selector
+                        # Escalation failed - stop
+                        logger.warning("[HEAL] Escalation failed, stopping heal loop")
+                        heal_event["actions"].append("escalation_failed")
+                        heal_event["success"] = False
+
+                        # LangGraph: reassignment required
+                        state.heal_events = (state.heal_events or []) + [heal_event]
+
+                        state.heal_round = max_heal_rounds
                         return state
                 else:
-                    # Non-fill actions: bail immediately on identical selector
-                    logger.warning("[HEAL] Identical selector, no escalation available - bailing")
+                    # Non-fill actions: bail immediately on first identical selector
+                    logger.warning("[HEAL] Identical selector, no escalation available - stopping")
+                    heal_event["actions"].append("no_escalation_available")
+                    heal_event["success"] = False
+
+                    # LangGraph: reassignment required
+                    state.heal_events = (state.heal_events or []) + [heal_event]
+
+                    state.heal_round = max_heal_rounds
                     return state
 
             reprobe_strategy = discovered["meta"]["strategy"]
@@ -221,10 +259,33 @@ async def run(state: RunState) -> RunState:
             state.plan[state.step_idx]["selector"] = new_selector
             selector = new_selector
         else:
-            # Week 3 Patch: Discovery returned None - prevent infinite loop
+            # v3.1s: Discovery returned None - detect repeated failures and stop
             print(f"[HEAL] ⚠️ Discovery returned None for '{intent.get('element')}' (round {state.heal_round})")
             heal_event["actions"].append("discovery_none")
-            selector = None  # Ensure selector is cleared to fail fast
+
+            # v3.1s Task 4: Guard against repeated None results
+            # Check previous heal events to see if we've been returning None repeatedly
+            none_count = sum(1 for evt in state.heal_events if "discovery_none" in evt.get("actions", []))
+
+            if none_count >= 1:  # If we've already failed to discover once before
+                logger.warning(f"[HEAL] 🛑 Repeated discovery failure (None x{none_count + 1}) - stopping heal loop")
+                logger.warning(f"[HEAL] Element '{intent.get('element')}' does not exist on this page")
+                heal_event["actions"].append("repeated_none_guard_triggered")
+                heal_event["none_count"] = none_count + 1
+                heal_event["success"] = False
+
+                # Set RCA message for better debugging
+                state.context["rca_detail"] = f"Element '{intent.get('element')}' not found after {none_count + 1} discovery attempts. Page may be in wrong state or element doesn't exist."
+
+                # CRITICAL: LangGraph requires reassignment for list changes
+                state.heal_events = (state.heal_events or []) + [heal_event]
+
+                # Force max heals to exit loop immediately
+                state.heal_round = max_heal_rounds
+                return state  # Early exit with guard triggered
+            else:
+                # First None - allow one more retry
+                selector = None
 
     # ==========================================
     # STEP 3: STABILITY & GATE VALIDATION
@@ -267,10 +328,12 @@ async def run(state: RunState) -> RunState:
     heal_event["duration_ms"] = heal_end_ms - heal_start_ms
     heal_event["success"] = gate_ok
 
-    # CRITICAL: Ensure heal_events list exists before appending
+    # CRITICAL: LangGraph requires reassignment (not in-place mutation) to detect changes
     if not hasattr(state, "heal_events") or state.heal_events is None:
         state.heal_events = []
-    state.heal_events.append(heal_event)
+    # Create new list with appended event (triggers LangGraph state update)
+    state.heal_events = state.heal_events + [heal_event]
+    logger.debug(f"[HEAL] Recorded heal event {len(state.heal_events)} (round {state.heal_round})")
 
     # ==========================================
     # RECORD OUTCOME TO HEALHISTORY (Day 11)

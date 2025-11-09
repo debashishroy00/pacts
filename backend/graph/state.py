@@ -1,5 +1,5 @@
 from __future__ import annotations
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ConfigDict
 from enum import Enum
 from typing import Dict, Any, Optional, List
 
@@ -12,6 +12,12 @@ class Failure(str, Enum):
     timeout = "timeout"
 
 class RunState(BaseModel):
+    # v3.1s: Ensure all fields serialize properly for LangGraph state passing
+    model_config = ConfigDict(
+        validate_assignment=True,  # Validate on direct assignment (state.field = value)
+        arbitrary_types_allowed=True  # Allow complex types in context dict
+    )
+
     req_id: str
     step_idx: int = 0
     heal_round: int = 0

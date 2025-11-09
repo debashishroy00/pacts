@@ -80,7 +80,7 @@ class BrowserClient:
                 slow_mo=slow_mo,
                 storage_state=storage_state
             )
-            print(f"[PACTS] 🥷 Stealth mode enabled (headless={headless})")
+            print(f"[PACTS] Stealth mode enabled (headless={headless})")
         else:
             # Original launcher (legacy)
             from playwright.async_api import async_playwright

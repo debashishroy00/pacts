@@ -1,5 +1,6 @@
 from __future__ import annotations
 from typing import Dict, Any, List
+import asyncio
 from ..graph.state import RunState, Failure
 from ..runtime.browser_manager import BrowserManager
 from ..runtime.discovery import discover_selector
@@ -74,26 +75,42 @@ async def run(state: RunState) -> RunState:
                     "element": current_element,
                     "action": current_step.get("action"),
                     "value": current_step.get("value"),
-                    "within": current_step.get("within")  # Region scope hint
+                    "within": current_step.get("within"),  # Region scope hint
+                    "ordinal": current_step.get("ordinal"),  # v3.1s: Ordinal position
+                    "element_type": current_step.get("element_type"),  # v3.1s: Element type hint
+                    "element_hint": current_step.get("element_hint")  # v3.1s: Additional context
                 }
                 # Use cached discovery if enabled
-                if USE_CACHE:
-                    cand = await discover_selector_cached(browser, intent)
-                else:
-                    cand = await discover_selector(browser, intent)
+                # v3.1s: Add timeout to prevent infinite hangs on blocked pages
+                try:
+                    if USE_CACHE:
+                        cand = await asyncio.wait_for(discover_selector_cached(browser, intent), timeout=60.0)
+                    else:
+                        cand = await asyncio.wait_for(discover_selector(browser, intent), timeout=60.0)
+                except asyncio.TimeoutError:
+                    print(f"[POMBuilder] ⚠️  Discovery timeout (60s) for '{current_element}' - element may not exist")
+                    cand = None
         else:
             # First step - always discover
             intent = {
                 "element": current_element,
                 "action": current_step.get("action"),
                 "value": current_step.get("value"),
-                "within": current_step.get("within")  # Region scope hint
+                "within": current_step.get("within"),  # Region scope hint
+                "ordinal": current_step.get("ordinal"),  # v3.1s: Ordinal position
+                "element_type": current_step.get("element_type"),  # v3.1s: Element type hint
+                "element_hint": current_step.get("element_hint")  # v3.1s: Additional context
             }
             # Use cached discovery if enabled
-            if USE_CACHE:
-                cand = await discover_selector_cached(browser, intent)
-            else:
-                cand = await discover_selector(browser, intent)
+            # v3.1s: Add timeout to prevent infinite hangs on blocked pages (increased to 60s for complex pages)
+            try:
+                if USE_CACHE:
+                    cand = await asyncio.wait_for(discover_selector_cached(browser, intent), timeout=60.0)
+                else:
+                    cand = await asyncio.wait_for(discover_selector(browser, intent), timeout=60.0)
+            except asyncio.TimeoutError:
+                print(f"[POMBuilder] ⚠️  Discovery timeout (60s) for '{current_element}' - element may not exist")
+                cand = None
         print(f"[POMBuilder] Discovery result: {cand}")
 
         # Week 3 Patch: Lightning combobox fallback

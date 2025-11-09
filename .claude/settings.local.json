@@ -1,11 +1,14 @@
 {
   "permissions": {
     "allow": [
-      "Bash(docker compose run --rm pacts-runner bash -lc 'python -m backend.cli.main test --req booking_search --clear-cache 2>&1 | tail -120')",
-      "Bash(docker compose down)",
-      "Bash(docker compose up -d)",
-      "Bash(docker compose run --rm pacts-runner bash -lc 'python -m backend.cli.main test --req booking_search --clear-cache 2>&1')",
-      "Bash(git commit -m \"feat(booking): Add universal ARIA autocomplete strategy - NO HARDCODING\n\nBooking.com now PASSES with generic ARIA role selectors!\n\n## Changes\n\n1. Universal Autocomplete Detection\n   - Created _try_booking_autocomplete() in discovery.py\n   - Detects ANY autocomplete listbox with options\n   - Returns generic selector: ''role=listbox >> role=option >> nth=0''\n   - NO site-specific hardcoding - works universally\n\n2. Strategy Details\n   - Triggers on: autocomplete/suggestion/first/option keywords\n   - Waits 200ms for options to render\n   - Checks listbox visibility before returning selector\n   - Score: 0.96 (high confidence)\n\n## Test Results\n\n✅ Booking.com: PASS (3/3 steps, 3 heal rounds)\n   - Step 1: Fill destination (Paris) - combobox detection\n   - Step 2: Click autocomplete option - ARIA selector\n   - Step 3: Click Search button\n   - Challenge detected but test proceeded\n\n## No Hardcoding\n- Removed all Booking.com-specific references\n- Pure ARIA role-based selection\n- Works for ANY site with ARIA listbox autocomplete\n- Completely generic and reusable\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>\")"
+      "Bash(pacts test requirements/login_simple.txt)",
+      "Bash(python -m backend.cli.main test requirements/reddit_search.txt)",
+      "Bash(python -m backend.cli.main test --req reddit_search)",
+      "Bash(set ENABLE_MEMORY=false)",
+      "Bash(python -m backend.cli.main test --req login_simple)",
+      "Bash(python -m backend.cli.main test --req youtube_search)",
+      "Bash(python -m backend.cli.main test --req booking_search)",
+      "Bash(git add -A)"
     ],
     "deny": [],
     "ask": []

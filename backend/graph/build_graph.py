@@ -89,22 +89,61 @@ def build_graph():
     # VerdictRCA with MCP diagnostics (Phase 2)
     async def verdict_rca_stub(state: RunState) -> RunState:
         """
-        Compute verdict based on execution results.
+        v3.1s: Compute verdict based on execution results.
+
+        Priority order:
+            1. BLOCKED - Page challenged/CAPTCHA detected
+            2. FAIL - Execution failures after healing
+            3. PASS - All steps succeeded
+            4. PARTIAL - Some steps completed before stop
+
         Includes MCP Playwright diagnostics when available.
         """
         from ..mcp.playwright_client import get_client, USE_MCP
         import logging
         logger = logging.getLogger(__name__)
 
+        # Priority 1: Check for BLOCKED pages (highest priority)
+        blocked_pages = state.context.get("blocked_pages", [])
+        current_verdict = getattr(state, "verdict", None)
+        if blocked_pages or current_verdict == "BLOCKED":
+            state.verdict = "BLOCKED"
+
+            # Determine if blocked before or during execution
+            if state.step_idx == 0:
+                message = f"Blocked on initial navigation: {blocked_pages[0]['reason']}" if blocked_pages else "Blocked before execution"
+            elif state.step_idx < len(state.plan):
+                message = f"Completed {state.step_idx}/{len(state.plan)} steps before block: {blocked_pages[-1]['reason']}" if blocked_pages else "Blocked during execution"
+            else:
+                message = f"Blocked after completing steps"
+
+            state.context["rca"] = {
+                "verdict": "BLOCKED",
+                "step_idx": state.step_idx,
+                "total_steps": len(state.plan),
+                "blocked_count": len(blocked_pages),
+                "blocked_pages": blocked_pages,
+                "message": message
+            }
+            logger.warning(f"⛔ [VERDICT] BLOCKED - {message}")
+            return state
+
+        # Priority 2: Execution failures
         if state.failure != Failure.none:
-            state.verdict = "fail"
+            state.verdict = "FAIL"
             rca = {
-                "verdict": "fail",
+                "verdict": "FAIL",
                 "step_idx": state.step_idx,
                 "failure_type": state.failure.value,
                 "heal_rounds": state.heal_round,
                 "heal_events": state.heal_events
             }
+
+            # v3.1s: Include healer guard RCA detail if available
+            rca_detail = state.context.get("rca_detail")
+            if rca_detail:
+                rca["message"] = rca_detail
+                logger.info(f"[VERDICT] RCA Detail: {rca_detail}")
 
             # Add MCP debug probe for failed selector (if available)
             if USE_MCP and state.step_idx < len(state.plan):
@@ -123,10 +162,11 @@ def build_graph():
             state.context["rca"] = rca
             state.context["healed"] = state.heal_round > 0
 
+        # Priority 3: Success
         elif state.step_idx >= len(state.plan):
-            state.verdict = "pass"
+            state.verdict = "PASS"
             state.context["rca"] = {
-                "verdict": "pass",
+                "verdict": "PASS",
                 "steps_executed": state.step_idx,
                 "total_steps": len(state.plan),
                 "heal_rounds": state.heal_round,
@@ -134,10 +174,11 @@ def build_graph():
             }
             state.context["healed"] = state.heal_round > 0
 
+        # Priority 4: Partial completion
         else:
-            state.verdict = "partial"
+            state.verdict = "PARTIAL"
             state.context["rca"] = {
-                "verdict": "partial",
+                "verdict": "PARTIAL",
                 "steps_executed": state.step_idx,
                 "total_steps": len(state.plan),
                 "heal_rounds": state.heal_round,

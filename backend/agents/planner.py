@@ -1,10 +1,11 @@
 from __future__ import annotations
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, List, Optional, Tuple
 from ..graph.state import RunState
 from ..telemetry.tracing import traced
 from ..runtime.step_utils import get_step_target
 import json
 import os
+import re
 from pathlib import Path
 
 # Load environment variables from .env file
@@ -26,6 +27,76 @@ except ImportError:
 
 # Week 8 Phase B: Scope-first discovery
 SCOPE_TOGGLE = os.getenv("PACTS_SCOPE_FEATURE", "true").lower() == "true"
+
+def _extract_ordinal_info(element_name: str) -> Tuple[Optional[int], Optional[str], str]:
+    """
+    Extract ordinal position from element names like 'first video', 'second result', '3rd link'.
+
+    Args:
+        element_name: The element name from the plan (e.g., "first video result")
+
+    Returns:
+        Tuple of (ordinal_index, element_type, cleaned_name)
+        - ordinal_index: 0 for first, 1 for second, etc. None if no ordinal found
+        - element_type: Extracted type (video, result, link, button) or None
+        - cleaned_name: Element name with ordinal removed
+
+    Examples:
+        "first video result" → (0, "video", "result")
+        "second link" → (1, "link", "")
+        "3rd button" → (2, "button", "")
+        "Login button" → (None, "button", "Login")
+    """
+    if not element_name:
+        return None, None, element_name
+
+    element_lower = element_name.lower().strip()
+
+    # Ordinal patterns: first, second, third, 1st, 2nd, 3rd, 4th, etc.
+    ordinal_patterns = {
+        r'\bfirst\b': 0,
+        r'\bsecond\b': 1,
+        r'\bthird\b': 2,
+        r'\bfourth\b': 3,
+        r'\bfifth\b': 4,
+        r'\b1st\b': 0,
+        r'\b2nd\b': 1,
+        r'\b3rd\b': 2,
+        r'\b(\d+)(?:th|st|nd|rd)\b': None,  # Will extract number
+    }
+
+    ordinal_index = None
+    for pattern, index in ordinal_patterns.items():
+        match = re.search(pattern, element_lower)
+        if match:
+            if index is None:  # Numeric pattern (4th, 5th, etc.)
+                ordinal_index = int(match.group(1)) - 1  # Convert 1-based to 0-based
+            else:
+                ordinal_index = index
+            # Remove the ordinal from the element name
+            element_lower = re.sub(pattern, '', element_lower).strip()
+            break
+
+    # Extract element type keywords (video, result, link, button, item, etc.)
+    type_keywords = {
+        'video', 'result', 'link', 'button', 'item', 'card', 'tile',
+        'article', 'post', 'comment', 'image', 'thumbnail', 'product',
+        'option', 'choice', 'row', 'column', 'entry'
+    }
+
+    element_type = None
+    for keyword in type_keywords:
+        if re.search(rf'\b{keyword}s?\b', element_lower):  # Match singular or plural
+            element_type = keyword
+            # Remove the type keyword from cleaned name
+            element_lower = re.sub(rf'\b{keyword}s?\b', '', element_lower).strip()
+            break
+
+    # Clean up remaining text
+    cleaned_name = element_lower.strip()
+
+    return ordinal_index, element_type, cleaned_name
+
 
 def _normalize_hitl_actions(spec: Dict[str, Any]) -> Dict[str, Any]:
     """
@@ -490,14 +561,28 @@ async def run(state: RunState) -> RunState:
             data_rows = tc.get("data", [{}]) or [{}]  # Default to single row if no data
             for row in data_rows:
                 for st in tc.get("steps", []):
+                    element_name = st.get("target")
+
+                    # v3.1s: Extract ordinal information from element name
+                    ordinal_index, element_type, cleaned_name = _extract_ordinal_info(element_name)
+
                     step = {
-                        "element": st.get("target"),
+                        "element": element_name,  # Keep original for logging
                         "action": st.get("action", "click").lower(),
                         "value": st.get("value", ""),
                         "expected": st.get("outcome"),
                         "within": st.get("within"),  # Region scope hint (added by _add_region_hints)
                         "meta": {"source": "planner_v2", "testcase": tc.get("id")}
                     }
+
+                    # v3.1s: Add ordinal metadata if detected
+                    if ordinal_index is not None:
+                        step["ordinal"] = ordinal_index
+                        if element_type:
+                            step["element_type"] = element_type
+                        if cleaned_name:
+                            step["element_hint"] = cleaned_name  # Additional context for discovery
+                        print(f"[Planner] 🎯 Detected ordinal: '{element_name}' → index={ordinal_index}, type={element_type}, hint='{cleaned_name}'")
 
                     # Bind template variables from data row (e.g., {{username}} → "testuser")
                     if step["value"]:
