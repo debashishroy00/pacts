@@ -404,3 +404,66 @@ async def handle_spa_navigation(browser, action: str, step: dict) -> dict:
         logger.debug(f"[EXEC] SPA navigation detection failed: {e}")
 
     return {"navigation_occurred": False, "strategy": "spa_nav_timeout", "ms": int(time.time() * 1000 - start_ms)}
+
+
+async def click_combobox_first_option(page: Page, combobox_selector: str, typed_value: Optional[str] = None) -> dict:
+    """
+    Phase 4a: ARIA combobox autocomplete pattern for Booking.com
+
+    Follows ARIA spec: combobox → aria-controls → listbox → first option
+
+    Args:
+        page: Playwright page
+        combobox_selector: Selector for the combobox (e.g., 'role=combobox[name=/destination/i]')
+        typed_value: Value that was already typed (optional, for logging)
+
+    Returns:
+        dict with success status and metadata
+
+    Raises:
+        Exception if autocomplete fails
+    """
+    import time
+    start_ms = time.time() * 1000
+
+    try:
+        # Step 1: Get the combobox element
+        combobox = page.locator(combobox_selector).first
+        if not await combobox.count():
+            raise Exception(f"Combobox not found: {combobox_selector}")
+
+        # Step 2: Wait a bit for autocomplete to render (Booking.com needs time in headless)
+        await page.wait_for_timeout(250)
+
+        # Step 3: Follow ARIA relationship to listbox
+        listbox_id = await combobox.get_attribute("aria-controls")
+        if listbox_id:
+            logger.info(f"[EXEC] combobox_autocomplete: Found aria-controls={listbox_id}")
+            listbox = page.locator(f'#{listbox_id}')
+        else:
+            # Fallback: Look for any listbox role
+            logger.info("[EXEC] combobox_autocomplete: No aria-controls, using fallback listbox")
+            listbox = page.get_by_role("listbox")
+
+        # Step 4: Wait for listbox to be visible
+        await listbox.wait_for(state="visible", timeout=4000)
+
+        # Step 5: Click first option
+        first_option = listbox.get_by_role("option").first
+        await first_option.wait_for(state="visible", timeout=2000)
+        await first_option.click()
+
+        elapsed = int(time.time() * 1000 - start_ms)
+        logger.info(f"[EXEC] strategy=combobox_autocomplete_aria ms={elapsed}")
+
+        return {
+            "success": True,
+            "strategy": "combobox_autocomplete_aria",
+            "ms": elapsed,
+            "listbox_id": listbox_id
+        }
+
+    except Exception as e:
+        elapsed = int(time.time() * 1000 - start_ms)
+        logger.warning(f"[EXEC] combobox_autocomplete failed: {e}")
+        raise Exception(f"autocomplete_failed:{e}")

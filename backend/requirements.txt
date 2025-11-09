@@ -8,6 +8,7 @@ langsmith>=0.1.39
 
 # Browser Automation
 playwright>=1.45,<2.0
+playwright-stealth>=2.0.0  # Phase 4a: Enhanced stealth mode
 
 # Web Framework
 fastapi>=0.109.0
