@@ -1,0 +1,22 @@
+# PACTS v3.1s Validation - Data-Driven Execution
+# Category: Multi-Data
+# Purpose: Verify template variable substitution and dataset execution
+# Expected: 100% pass rate (3 rows), consistent results across all rows
+
+name: multi_dataset_validation
+description: Test data-driven execution with CSV dataset
+
+vars:
+  test_type: dataset_validation
+  base_url: https://the-internet.herokuapp.com/login
+
+steps:
+  # This test will run once per row in users.csv
+  - go: "${base_url}"
+  - wait: 2000
+  - assert_visible: Login Page
+  - fill: { selector: "#username", value: "${username}" }
+  - fill: { selector: "#password", value: "${password}" }
+  - click: { selector: "button[type=submit]" }
+  - wait: 2000
+  - assert_visible: "${expected_message}"

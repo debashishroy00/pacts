@@ -16,19 +16,30 @@ from .dialog_sentinel import DialogSentinel  # Week 9 Phase C: Auto-close error 
 logger = logging.getLogger(__name__)
 
 
-async def _universal_readiness_gate(browser, selector: str) -> bool:
+async def _universal_readiness_gate(browser, selector: str, action: Optional[str] = None) -> bool:
     """
     Week 8 EDR: Universal 3-Stage Readiness Gate
+    Phase 4a: Action-aware visibility policy for fill actions
 
     Ensures element is ready for interaction across ALL web applications (static + dynamic).
 
     Stage 1: DOM Idle - Wait for network/animation to settle
-    Stage 2: Element Ready - Ensure element is visible and enabled
+    Stage 2: Element Ready - Ensure element is visible and enabled (action-aware)
     Stage 3: App Ready Hook - Optional window.__APP_READY__() callback (if defined by app)
+
+    Args:
+        browser: BrowserManager instance
+        selector: CSS/Playwright selector
+        action: Action type ("fill", "click", etc.) - affects visibility policy
 
     Returns:
         bool: True if all stages pass, False if any stage fails
     """
+    # Phase 4a: Guard against None/empty selector
+    if not selector:
+        logger.debug("[READINESS] No selector provided - skipping gate")
+        return False
+
     page = browser.page
     url = page.url or ""
 
@@ -52,11 +63,43 @@ async def _universal_readiness_gate(browser, selector: str) -> bool:
             except Exception as e:
                 logger.warning(f"[READINESS] Stage 1 ⚠: DOM idle timeout ({e})")
 
-        # Stage 2: Element Ready (visible + enabled)
+        # Stage 2: Element Ready (action-aware visibility policy)
         ulog.readiness(stage="element-visible")
-        logger.debug(f"[READINESS] Stage 2: Checking element visibility ({selector[:50]})")
+        logger.debug(f"[READINESS] Stage 2: Checking element readiness (action={action}, selector={selector[:50]})")
+
+        locator = page.locator(selector).first
+
+        # Phase 4a: For fill actions, allow hidden elements (ensure_fillable will activate)
+        if action == "fill":
+            try:
+                # Check existence first
+                count = await locator.count()
+                if count == 0:
+                    logger.warning(f"[READINESS] Stage 2 ❌: Element does not exist")
+                    return False
+
+                # Allow if editable (visible input/textarea)
+                if await locator.is_editable():
+                    logger.debug(f"[READINESS] Stage 2 ✓: Element editable (fill action)")
+                    return True
+
+                # Allow if hidden (ensure_fillable() will activate UI and re-target)
+                is_visible = await locator.is_visible()
+                if not is_visible:
+                    logger.info(f"[READINESS] Stage 2 ✓: Hidden element allowed for fill (activation will handle)")
+                    return True
+
+                # Visible but not editable - still allow (ensure_fillable may upgrade)
+                logger.debug(f"[READINESS] Stage 2 ✓: Element exists, allowing fill action")
+                return True
+
+            except Exception as e:
+                # If Playwright throws (detached element), let execution handle reacquire
+                logger.debug(f"[READINESS] Stage 2 ⚠: Playwright error for fill, allowing: {e}")
+                return True
+
+        # Non-fill actions: strict visibility requirement
         try:
-            locator = page.locator(selector).first
             await locator.wait_for(state="visible", timeout=config.element_visible_timeout)
 
             # Check if element is enabled (for buttons/inputs)
@@ -257,14 +300,17 @@ async def _validate_step(browser, step: Dict[str, Any], heal_round: int = 0) -> 
     print(f"[GATE] unique={gates['unique']} visible={gates['visible']} enabled={gates['enabled']} stable={gates['stable_bbox']} scoped={gates['scoped']} selector={selector}")
 
     # Check each gate and return appropriate failure
+    # Phase 4a: For fill actions, skip visibility/stability checks (ensure_fillable handles hidden inputs)
     if not gates["unique"]:
         return Failure.not_unique, None
-    if not gates["visible"]:
+    if not gates["visible"] and action != "fill":
         return Failure.not_visible, None
+    # For fill actions, allow hidden elements (ensure_fillable will activate)
     if not gates["enabled"]:
         return Failure.disabled, None
-    if not gates["stable_bbox"]:
+    if not gates["stable_bbox"] and action != "fill":
         return Failure.unstable, None
+    # For fill actions, allow unstable hidden elements (ensure_fillable will activate and stabilize)
     # scoped is always True for now (future: frame/shadow DOM)
 
     return None, el
@@ -458,8 +504,9 @@ async def run(state: RunState) -> RunState:
             return state
 
     # Week 8 EDR: Universal 3-stage readiness gate (replaces SF-specific check)
+    # Phase 4a: Pass action for action-aware visibility policy (fill allows hidden)
     # Applies to ALL apps (static + dynamic), profile-aware timeouts
-    readiness_ok = await _universal_readiness_gate(browser, selector)
+    readiness_ok = await _universal_readiness_gate(browser, selector, action=action)
     if not readiness_ok:
         selector_preview = selector[:50] if selector else "(no selector)"
         logger.warning(f"[EXEC] Readiness gate failed for {selector_preview}")

@@ -2,10 +2,11 @@
 PACTS Generated Test
 ====================
 Requirement ID: salesforce_contact_account.txt
-Generated: 2025-11-08 04:45:01
+Generated: 2025-11-08 18:06:14
 Verdict: FAIL
 
 Discovery Strategies Used:
+  - aria_label_fuzzy
   - failed
   - label_for
   - lightning_aria_label
@@ -25,7 +26,7 @@ async def test_salesforce_contact_account_txt():
 
     Test Details:
     - URL: https://orgfarm-9a1de3d5e8-dev-ed.develop.my.salesforce.com
-    - Steps: 17
+    - Steps: 20
     - Verdict: fail
     
 
@@ -57,52 +58,64 @@ async def test_salesforce_contact_account_txt():
         # Step 5: FILL Account Name
         # Selector: input#input-590
         # Strategy: label_for, Confidence: 0.86
-        await page.locator("input#input-590").fill("AAA Insurance Test")
-        # Step 6: FILL Phone
+        await page.locator("input#input-590").fill("AAA Insurance Test ${YYYYMMDDHHmmss}")
+        # Step 6: FILL Type
+        # Selector: button#combobox-button-623
+        # Strategy: label_for, Confidence: 0.86
+        await page.locator("button#combobox-button-623").fill("Customer – Direct")
+        # Step 7: FILL Industry
+        # Selector: button#combobox-button-640
+        # Strategy: label_for, Confidence: 0.86
+        await page.locator("button#combobox-button-640").fill("Insurance")
+        # Step 8: FILL Billing Country
+        # Selector: input[aria-label="Billing Country"]
+        # Strategy: aria_label_fuzzy, Confidence: 0.96
+        await page.locator("input[aria-label="Billing Country"]").fill("United States")
+        # Step 9: FILL Phone
         # Selector: input#input-593
         # Strategy: label_for, Confidence: 0.86
-        await page.locator("input#input-593").fill("555-0101")
-        # Step 7: FILL Website
+        await page.locator("input#input-593").fill("202-555-0145")
+        # Step 10: FILL Website
         # Selector: input#input-607
         # Strategy: label_for, Confidence: 0.86
-        await page.locator("input#input-607").fill("https://example.com")
-        # Step 8: CLICK Save
+        await page.locator("input#input-607").fill("https://aaa-insurance.example")
+        # Step 11: CLICK Save
         # Selector: role=button[name*="save"i] >> nth=0
         # Strategy: role_name_disambiguated, Confidence: 0.95
         await page.locator("role=button[name*="save"i] >> nth=0").click()
-        # Step 9: CLICK Accounts
+        # Step 12: CLICK Accounts
         # Selector: input[placeholder="Search Accounts..."]
         # Strategy: failed, Confidence: 0.0
         await page.locator("input[placeholder="Search Accounts..."]").click()
-        # Step 10: FILL Search
+        # Step 13: FILL Search
         # Selector: input[aria-label="Search this list..."]
         # Strategy: lightning_aria_label, Confidence: 0.91
-        await page.locator("input[aria-label="Search this list..."]").fill("AAA Insurance Test")
-        # Step 11: CLICK AAA Insurance Test
+        await page.locator("input[aria-label="Search this list..."]").fill("AAA Insurance Test ${YYYYMMDDHHmmss}")
+        # Step 14: CLICK AAA Insurance Test {{timestamp}}
         # Selector: DISCOVERY_FAILED
         # Strategy: failed, Confidence: 0.0
         await page.locator("DISCOVERY_FAILED").click()
-        # Step 12: CLICK New Contact
+        # Step 15: CLICK New Contact
         # Selector: 
         # Strategy: , Confidence: 
         await page.locator("").click()
-        # Step 13: FILL First Name
+        # Step 16: FILL First Name
         # Selector: 
         # Strategy: , Confidence: 
         await page.locator("").fill("Meredith")
-        # Step 14: FILL Last Name
+        # Step 17: FILL Last Name
         # Selector: 
         # Strategy: , Confidence: 
         await page.locator("").fill("Seth")
-        # Step 15: FILL Email
+        # Step 18: FILL Email
         # Selector: 
         # Strategy: , Confidence: 
-        await page.locator("").fill("test.contact.1762576652@example.com")
-        # Step 16: FILL Phone
+        await page.locator("").fill("test.contact.${YYYYMMDDHHmmss}@example.com")
+        # Step 19: FILL Phone
         # Selector: 
         # Strategy: , Confidence: 
-        await page.locator("").fill("555-1234")
-        # Step 17: CLICK Save
+        await page.locator("").fill("202-555-0158")
+        # Step 20: CLICK Save
         # Selector: 
         # Strategy: , Confidence: 
         await page.locator("").click()

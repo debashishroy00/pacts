@@ -2,14 +2,13 @@
 PACTS Generated Test
 ====================
 Requirement ID: salesforce_contact_account
-Generated: 2025-11-08 04:59:35
+Generated: 2025-11-08 18:35:25
 Verdict: FAIL
 
 Discovery Strategies Used:
   - aria_label_fuzzy
   - failed
   - label_for
-  - lightning_aria_label
   - placeholder_attr
   - role_name
   - role_name_disambiguated
@@ -87,14 +86,14 @@ async def test_salesforce_contact_account():
         # Selector: input[placeholder="Search Accounts..."]
         # Strategy: failed, Confidence: 0.0
         await page.locator("input[placeholder="Search Accounts..."]").click()
-        # Step 13: FILL Search
-        # Selector: input[aria-label="Search this list..."]
-        # Strategy: lightning_aria_label, Confidence: 0.91
-        await page.locator("input[aria-label="Search this list..."]").fill("AAA Insurance Test ${YYYYMMDDHHmmss}")
-        # Step 14: CLICK {{accountName}}
+        # Step 13: FILL Search...
         # Selector: DISCOVERY_FAILED
         # Strategy: failed, Confidence: 0.0
-        await page.locator("DISCOVERY_FAILED").click()
+        await page.locator("DISCOVERY_FAILED").fill("AAA Insurance Test ${YYYYMMDDHHmmss}")
+        # Step 14: CLICK {{AccountName}}
+        # Selector: 
+        # Strategy: , Confidence: 
+        await page.locator("").click()
         # Step 15: CLICK New Contact
         # Selector: 
         # Strategy: , Confidence: 

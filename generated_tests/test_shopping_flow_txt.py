@@ -1,8 +1,8 @@
 """
 PACTS Generated Test
 ====================
-Requirement ID: shopping_e2e.txt
-Generated: 2025-11-09 01:04:54
+Requirement ID: shopping_flow.txt
+Generated: 2025-11-09 01:11:50
 Verdict: PASS
 
 Discovery Strategies Used:
@@ -18,13 +18,13 @@ import asyncio
 from playwright.async_api import async_playwright
 
 
-async def test_shopping_e2e_txt():
+async def test_shopping_flow_txt():
     """
-    Test for requirement: shopping_e2e.txt
+    Test for requirement: shopping_flow.txt
 
     Test Details:
     - URL: https://www.saucedemo.com
-    - Steps: 13
+    - Steps: 15
     - Verdict: pass
     
 
@@ -61,31 +61,39 @@ async def test_shopping_e2e_txt():
         # Selector: #add-to-cart-sauce-labs-bolt-t-shirt
         # Strategy: role_name, Confidence: 0.95
         await page.locator("#add-to-cart-sauce-labs-bolt-t-shirt").click()
-        # Step 7: CLICK Shopping Cart
+        # Step 7: CLICK Add to cart
+        # Selector: #add-to-cart-sauce-labs-fleece-jacket
+        # Strategy: role_name, Confidence: 0.95
+        await page.locator("#add-to-cart-sauce-labs-fleece-jacket").click()
+        # Step 8: CLICK Add to cart
+        # Selector: #add-to-cart-sauce-labs-onesie
+        # Strategy: role_name, Confidence: 0.95
+        await page.locator("#add-to-cart-sauce-labs-onesie").click()
+        # Step 9: CLICK Shopping cart
         # Selector: .shopping_cart_link
         # Strategy: heuristic, Confidence: 0.9
         await page.locator(".shopping_cart_link").click()
-        # Step 8: CLICK Checkout
+        # Step 10: CLICK Checkout
         # Selector: button[name="checkout"]
         # Strategy: name_attr_fuzzy, Confidence: 0.92
         await page.locator("button[name="checkout"]").click()
-        # Step 9: FILL First Name
+        # Step 11: FILL First Name
         # Selector: input[name="firstName"]
         # Strategy: name_attr_fuzzy, Confidence: 0.92
         await page.locator("input[name="firstName"]").fill("John")
-        # Step 10: FILL Last Name
+        # Step 12: FILL Last Name
         # Selector: input[name="lastName"]
         # Strategy: name_attr_fuzzy, Confidence: 0.92
         await page.locator("input[name="lastName"]").fill("Doe")
-        # Step 11: FILL Zip Code
+        # Step 13: FILL Zip Code
         # Selector: input[placeholder="Zip/Postal Code"]
         # Strategy: placeholder_attr_fuzzy, Confidence: 0.88
         await page.locator("input[placeholder="Zip/Postal Code"]").fill("12345")
-        # Step 12: CLICK Continue
+        # Step 14: CLICK Continue
         # Selector: input[name="continue"]
         # Strategy: name_attr_fuzzy, Confidence: 0.92
         await page.locator("input[name="continue"]").click()
-        # Step 13: CLICK Finish
+        # Step 15: CLICK Finish
         # Selector: button[name="finish"]
         # Strategy: name_attr_fuzzy, Confidence: 0.92
         await page.locator("button[name="finish"]").click()
@@ -93,4 +101,4 @@ async def test_shopping_e2e_txt():
 
 
 if __name__ == "__main__":
-    asyncio.run(test_shopping_e2e_txt())
+    asyncio.run(test_shopping_flow_txt())

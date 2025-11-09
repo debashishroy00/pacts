@@ -2,11 +2,12 @@
 PACTS Generated Test
 ====================
 Requirement ID: youtube_search
-Generated: 2025-11-01 00:58:40
+Generated: 2025-11-09 02:17:52
 Verdict: PASS
 
 Discovery Strategies Used:
-  - mcp_direct_action
+  - placeholder_attr
+  - youtube_video
 
 """
 
@@ -34,17 +35,17 @@ async def test_youtube_search():
         await page.goto("https://www.youtube.com")
 
         # Step 1: FILL Search
-        # Selector: MCP_FILL:Search
-        # Strategy: mcp_direct_action, Confidence: 0.95
-        await page.locator("MCP_FILL:Search").fill("Playwright automation tutorial")
+        # Selector: input[placeholder="Search"]
+        # Strategy: placeholder_attr, Confidence: 0.9
+        await page.locator("input[placeholder="Search"]").fill("Playwright automation tutorial")
         # Step 2: PRESS Search
-        # Selector: MCP_FILL:Search
-        # Strategy: mcp_direct_action, Confidence: 0.95
-        await page.locator("MCP_FILL:Search").press("Enter")
-        # Step 3: CLICK First Video
-        # Selector: MCP_CLICK:First Video
-        # Strategy: mcp_direct_action, Confidence: 0.95
-        await page.locator("MCP_CLICK:First Video").click()
+        # Selector: input[placeholder="Search"]
+        # Strategy: placeholder_attr, Confidence: 0.9
+        await page.locator("input[placeholder="Search"]").press("Enter")
+        # Step 3: CLICK Video
+        # Selector: a#video-title >> nth=0
+        # Strategy: youtube_video, Confidence: 0.94
+        await page.locator("a#video-title >> nth=0").click()
         await browser.close()
 
 

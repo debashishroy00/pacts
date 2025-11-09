@@ -1,0 +1,37 @@
+# PACTS v3.1s Validation - Authentication Flows
+# Category: Auth
+# Purpose: Verify PACTS handles login flows with environment variables
+# Expected: 90% pass rate (auth can be flaky), <5s per step
+
+name: auth_flows_validation
+description: Test authentication flows using environment credentials
+
+vars:
+  test_type: auth_validation
+  # These should be set in environment or .env file
+  # GITHUB_TEST_USER, GITHUB_TEST_PASS (use test account, not production!)
+
+steps:
+  # Test 1: GitHub Login Page Access (no actual login - just verify page loads)
+  - go: https://github.com/login
+  - wait: 3000
+  - assert_visible: Sign in to GitHub
+  - assert_url_contains: github.com/login
+
+  # Note: Actual login requires CAPTCHA/2FA handling
+  # For full auth testing, use test credentials with @env: syntax
+  # Example (commented out - requires test account):
+  # - fill: { selector: "#login_field", value: "@env:GITHUB_TEST_USER" }
+  # - fill: { selector: "#password", value: "@env:GITHUB_TEST_PASS" }
+  # - click: { selector: "input[type=submit]" }
+  # - assert_visible: Dashboard
+
+  # Test 2: Generic Login Form (example.com - demo page)
+  - go: https://the-internet.herokuapp.com/login
+  - wait: 2000
+  - assert_visible: Login Page
+  - fill: { selector: "#username", value: "tomsmith" }
+  - fill: { selector: "#password", value: "SuperSecretPassword!" }
+  - click: { selector: "button[type=submit]" }
+  - wait: 2000
+  - assert_visible: You logged into a secure area

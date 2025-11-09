@@ -1,0 +1,29 @@
+# PACTS v3.1s Validation - Static Sites
+# Category: Static
+# Purpose: Verify PACTS works on traditional static websites
+# Expected: 100% pass rate, <2s per step
+
+name: static_sites_validation
+description: Test navigation and content verification on static sites
+
+vars:
+  test_type: static_validation
+
+steps:
+  # Test 1: GitHub
+  - go: https://github.com
+  - wait: 2000
+  - assert_visible: GitHub
+  - assert_url_contains: github.com
+
+  # Test 2: Python Docs
+  - go: https://docs.python.org
+  - wait: 2000
+  - assert_visible: Python
+  - assert_url_contains: python.org
+
+  # Test 3: Wikipedia
+  - go: https://en.wikipedia.org
+  - wait: 2000
+  - assert_visible: Wikipedia
+  - assert_url_contains: wikipedia.org

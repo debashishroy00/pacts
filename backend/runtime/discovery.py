@@ -95,6 +95,10 @@ STRATEGIES = [
     "role_name",          # Tier 6: Visible text / role-name (⚠ Volatile)
     "data_attr",          # Tier 7: data-* attribute (✅ Stable)
     "id_class",           # Tier 8: id / class (⚠ Volatile - last resort)
+    # Phase 4a: Site-specific strategies (before legacy fallbacks)
+    "youtube_video",      # YouTube video result detection
+    "reddit_search",      # Reddit search box detection
+    "booking_destination",  # Booking.com destination field
     # Legacy strategies (backwards compatibility)
     "relational_css",
     "shadow_pierce",
@@ -110,8 +114,11 @@ ROLE_HINTS = {
     "continue": "button",
     "next": "button",
     "ok": "button",
-    "search": "button",
+    "search": "searchbox",  # Phase 4a: searchbox role for search inputs
     "menu": "button",
+    "video": "link",  # Phase 4a: YouTube video results
+    "result": "link",  # Phase 4a: Generic result links
+    "first": "link",  # Phase 4a: First result pattern
     "tab": "tab",
     "link": "link",
     "button": "button",
@@ -311,7 +318,7 @@ async def _try_aria_placeholder(browser, intent) -> Optional[Dict[str, Any]]:
         if count == 1:
             el_handle = await browser.page.locator(selector).first.element_handle()
             if el_handle and await _check_visibility(browser, selector, el_handle):
-                tag_name = await el.evaluate("el => el.tagName.toLowerCase()")
+                tag_name = await el_handle.evaluate("el => el.tagName.toLowerCase()")
                 refined_selector = f'{tag_name}[aria-placeholder="{name}"]'
 
                 logger.info(f'[DISCOVERY] Tier 2 ✅ aria-placeholder: {refined_selector}')
@@ -365,7 +372,7 @@ async def _try_name_attr(browser, intent) -> Optional[Dict[str, Any]]:
         if count == 1:
             el_handle = await browser.page.locator(selector).first.element_handle()
             if el_handle and await _check_visibility(browser, selector, el_handle):
-                tag_name = await el.evaluate("el => el.tagName.toLowerCase()")
+                tag_name = await el_handle.evaluate("el => el.tagName.toLowerCase()")
                 refined_selector = f'{tag_name}[name="{name}"]'
 
                 logger.info(f'[DISCOVERY] Tier 3 ✅ name: {refined_selector}')
@@ -805,7 +812,16 @@ async def _try_role_name(browser, intent) -> Optional[Dict[str, Any]]:
     role = None
     # Prefer action mapping
     if action == "click":
-        role = "button"
+        # Phase 4a: Don't force button for click - let keyword mapping decide
+        # Check if it looks like a link/result pattern
+        if any(kw in normalized_name for kw in ["video", "result", "first", "link", "article"]):
+            role = "link"  # Likely a clickable result, not a button
+        else:
+            role = "button"
+    elif action == "fill":
+        # Phase 4a: For fill actions, try searchbox role first
+        role = "searchbox"
+
     # Keyword mapping (check normalized name for hints)
     for key, r in ROLE_HINTS.items():
         if key in normalized_name:
@@ -813,7 +829,11 @@ async def _try_role_name(browser, intent) -> Optional[Dict[str, Any]]:
             break
 
     # Final fallback: try common roles
-    candidates = [role] if role else ["button", "link", "tab"]
+    # Phase 4a: Include searchbox for fill actions, article for click
+    if action == "fill":
+        candidates = [role] if role else ["searchbox", "textbox", "combobox"]
+    else:
+        candidates = [role] if role else ["button", "link", "article", "tab"]
 
     # Try exact match first (fastest)
     exact_pattern = re.compile(re.escape(normalized_name), re.I)
@@ -826,17 +846,37 @@ async def _try_role_name(browser, intent) -> Optional[Dict[str, Any]]:
                 logger.debug(f"[Discovery] Role '{r}' match '{selector}' is hidden, trying next")
                 continue  # Try next role candidate
 
-            # CRITICAL FIX: If multiple buttons match common action names (New, Save, Edit, Delete),
-            # try to disambiguate by filtering out non-primary action buttons
-            if r == "button" and normalized_name in ["new", "save", "edit", "delete", "cancel", "submit"]:
-                # Check if multiple buttons match
-                locator = browser.page.get_by_role("button", name=exact_pattern)
-                count = await locator.count()
+            # Phase 4a-C: Non-Unique Selector Handling (v3.1s Stealth 2.0)
+            # Check if multiple elements match (for ALL roles, not just common buttons)
+            locator = browser.page.get_by_role(r, name=exact_pattern)
+            count = await locator.count()
 
-                if count > 1:
+            if count > 1:
+                logger.info(f"[Discovery] Phase 4a-C: Non-unique {r} match ({count} elements), applying fallbacks")
+
+                # Fallback 1: Try text-based CSS selector (YouTube filter chips case)
+                try:
+                    text_selector = f'{r}:has-text("{name}")'
+                    text_locator = browser.page.locator(text_selector)
+                    text_count = await text_locator.count()
+
+                    if text_count == 1:
+                        logger.info(f"[Discovery] Phase 4a-C: Text-based selector is unique: {text_selector}")
+                        text_el = await text_locator.first.element_handle()
+                        if text_el and await _check_visibility(browser, text_selector, text_el):
+                            return {
+                                "selector": text_selector,
+                                "score": 0.93,
+                                "meta": {"strategy": "role_name_text_fallback", "role": r, "name": name, "count": count}
+                            }
+                except Exception as e:
+                    logger.debug(f"[Discovery] Phase 4a-C: Text fallback failed: {e}")
+
+                # Fallback 2: Disambiguate common action buttons (New, Save, Edit, Delete)
+                if r == "button" and normalized_name in ["new", "save", "edit", "delete", "cancel", "submit"]:
                     logger.info(f"[Discovery] 🔍 Multiple '{normalized_name}' buttons found ({count}), disambiguating...")
 
-                    # Strategy 1: Find button in main action toolbar (not in tabs/headers)
+                    # Strategy: Find button in main action toolbar (not in tabs/headers)
                     # Filter out buttons that are part of tab strips or other compound elements
                     for i in range(count):
                         candidate_el = await locator.nth(i).element_handle()
@@ -862,14 +902,31 @@ async def _try_role_name(browser, intent) -> Optional[Dict[str, Any]]:
                             if button_id:
                                 selector = f"#{button_id}"
                             else:
-                                # Use nth-child selector
-                                selector = f"role=button[name*=\"{normalized_name}\"i] >> nth={i}"
+                                # Phase 4a: Use proper Playwright regex syntax
+                                selector = f"role=button[name=/{normalized_name}/i] >> nth={i}"
 
                             return {
                                 "selector": selector,
                                 "score": 0.95,
                                 "meta": {"strategy": "role_name_disambiguated", "role": r, "name": name, "normalized": normalized_name, "position": i}
                             }
+
+                # Fallback 3: Last resort - use nth with Playwright role API (more stable than CSS nth)
+                logger.warning(f"[Discovery] Phase 4a-C: Using nth(0) fallback for non-unique {r} (may be brittle)")
+                first_el = await locator.first.element_handle()
+                if first_el:
+                    el_id = await first_el.get_attribute("id")
+                    if el_id:
+                        selector = f"#{el_id}"
+                    else:
+                        # Prefer role locator with nth over CSS nth (more stable)
+                        selector = f'role={r}[name="{name}" i] >> nth=0'
+
+                    return {
+                        "selector": selector,
+                        "score": 0.84,  # Slightly higher confidence for role nth
+                        "meta": {"strategy": "role_name_nth_locator", "role": r, "name": name, "count": count, "warning": "non_unique"}
+                    }
 
             return {
                 "selector": selector,
@@ -998,6 +1055,159 @@ async def _try_relational_css(browser, intent) -> Optional[Dict[str, Any]]:
 async def _try_shadow_pierce(browser, intent) -> Optional[Dict[str, Any]]:
     return None
 
+async def _try_youtube_video(browser, intent) -> Optional[Dict[str, Any]]:
+    """Phase 4a: YouTube-specific video result detection"""
+    name = (intent.get("element") or intent.get("intent") or "").strip().lower()
+
+    # Only apply to video/result patterns
+    if not any(kw in name for kw in ["video", "result", "first"]):
+        return None
+
+    try:
+        # YouTube video results have id="video-title" links
+        video_links = browser.page.locator('a#video-title')
+        count = await video_links.count()
+
+        if count > 0:
+            logger.info(f"[Discovery] Phase 4a: Found {count} YouTube video results")
+            # First video result
+            first_video = video_links.first
+            if await first_video.is_visible():
+                return {
+                    "selector": "a#video-title >> nth=0",
+                    "score": 0.94,
+                    "meta": {"strategy": "youtube_video", "name": name, "count": count}
+                }
+    except Exception as e:
+        logger.debug(f"[Discovery] YouTube video strategy failed: {e}")
+
+    return None
+
+async def _try_reddit_search(browser, intent) -> Optional[Dict[str, Any]]:
+    """Phase 4a: Reddit-specific search box detection with activation"""
+    name = (intent.get("element") or intent.get("intent") or "").strip().lower()
+    action = intent.get("action", "").lower()
+
+    # Only apply to search patterns on fill actions
+    if action != "fill" or "search" not in name:
+        return None
+
+    try:
+        # First, try to find existing visible search input
+        reddit_selectors = [
+            'input[name="q"]',  # Old Reddit
+            'input[type="search"]',  # New Reddit
+            'input[placeholder*="Search" i]',  # Generic search
+            'input[aria-label*="Search" i]',  # Accessible search
+        ]
+
+        for sel in reddit_selectors:
+            locator = browser.page.locator(sel)
+            count = await locator.count()
+            if count > 0:
+                first = locator.first
+                try:
+                    if await first.is_visible() and await first.is_editable():
+                        logger.info(f"[Discovery] Phase 4a: Found Reddit search via {sel}")
+                        return {
+                            "selector": sel,
+                            "score": 0.93,
+                            "meta": {"strategy": "reddit_search", "name": name}
+                        }
+                except Exception:
+                    continue
+
+        # If not found, try activating search (Reddit may have hidden/collapsed search)
+        # Try clicking search icon/button first
+        search_activators = [
+            'button[aria-label*="Search" i]',
+            'a[href*="search"]',
+            '[data-testid="search-icon"]',
+        ]
+
+        for activator_sel in search_activators:
+            try:
+                activator = browser.page.locator(activator_sel).first
+                if await activator.is_visible():
+                    await activator.click(timeout=2000)
+                    await browser.page.wait_for_timeout(500)
+
+                    # Re-try finding search input after activation
+                    for sel in reddit_selectors:
+                        locator = browser.page.locator(sel)
+                        if await locator.count() > 0:
+                            first = locator.first
+                            if await first.is_visible() and await first.is_editable():
+                                logger.info(f"[Discovery] Phase 4a: Found Reddit search after activation via {sel}")
+                                return {
+                                    "selector": sel,
+                                    "score": 0.92,
+                                    "meta": {"strategy": "reddit_search_activated", "name": name, "activator": activator_sel}
+                                }
+                    break
+            except Exception:
+                continue
+
+    except Exception as e:
+        logger.debug(f"[Discovery] Reddit search strategy failed: {e}")
+
+    return None
+
+async def _try_booking_destination(browser, intent) -> Optional[Dict[str, Any]]:
+    """Phase 4a: Booking.com destination/location field detection"""
+    name = (intent.get("element") or intent.get("intent") or "").strip().lower()
+    action = intent.get("action", "").lower()
+
+    # Only apply to destination/location patterns on fill actions
+    if action != "fill" or not any(kw in name for kw in ["destination", "where", "location", "city"]):
+        return None
+
+    try:
+        # Strategy 1: Try searchbox role (Booking.com uses this)
+        searchbox = browser.page.get_by_role("searchbox").first
+        if await searchbox.count() > 0 and await searchbox.is_visible():
+            logger.info("[Discovery] Phase 4a: Found Booking destination via searchbox role")
+            return {
+                "selector": "role=searchbox",
+                "score": 0.95,
+                "meta": {"strategy": "booking_destination_searchbox", "name": name}
+            }
+
+        # Strategy 2: Try combobox with destination text
+        combobox = browser.page.get_by_role("combobox", name=re.compile(r"destination|where are you going", re.I)).first
+        if await combobox.count() > 0 and await combobox.is_visible():
+            logger.info("[Discovery] Phase 4a: Found Booking destination via combobox role")
+            return {
+                "selector": 'role=combobox[name=/destination|where are you going/i]',
+                "score": 0.94,
+                "meta": {"strategy": "booking_destination_combobox", "name": name}
+            }
+
+        # Strategy 3: Canonical Booking.com selector
+        canonical = browser.page.locator('input[name="ss"]').first
+        if await canonical.count() > 0 and await canonical.is_visible():
+            logger.info("[Discovery] Phase 4a: Found Booking destination via canonical name=ss")
+            return {
+                "selector": 'input[name="ss"]',
+                "score": 0.96,
+                "meta": {"strategy": "booking_destination_canonical", "name": name}
+            }
+
+        # Strategy 4: Placeholder-based
+        placeholder = browser.page.get_by_placeholder(re.compile(r"where are you going|destination", re.I)).first
+        if await placeholder.count() > 0 and await placeholder.is_visible():
+            logger.info("[Discovery] Phase 4a: Found Booking destination via placeholder")
+            return {
+                "selector": 'input[placeholder*="Where are you going"]',
+                "score": 0.93,
+                "meta": {"strategy": "booking_destination_placeholder", "name": name}
+            }
+
+    except Exception as e:
+        logger.debug(f"[Discovery] Booking destination strategy failed: {e}")
+
+    return None
+
 async def _try_fallback_css(browser, intent) -> Optional[Dict[str, Any]]:
     return None
 
@@ -1016,6 +1226,10 @@ STRATEGY_FUNCS = {
     "label": _try_label,
     "placeholder": _try_placeholder,
     "email_type": _try_email_type,
+    # Phase 4a: Site-specific strategies
+    "youtube_video": _try_youtube_video,
+    "reddit_search": _try_reddit_search,
+    "booking_destination": _try_booking_destination,
     "relational_css": _try_relational_css,
     "shadow_pierce": _try_shadow_pierce,
     "fallback_css": _try_fallback_css,
@@ -1042,12 +1256,17 @@ async def discover_selector(browser, intent) -> Optional[Dict[str, Any]]:
     # This prevents premature discovery when elements haven't rendered yet
     try:
         await browser.page.wait_for_load_state("domcontentloaded", timeout=3000)
-        await browser.page.wait_for_timeout(1000)  # Additional settle time
+        await browser.page.wait_for_timeout(500)  # Reduced settle time for non-SF sites
     except Exception:
         pass  # Non-critical - continue with discovery
 
     # Week 5: Lightning list page readiness (prevents "New" button timeout)
-    await ensure_lightning_ready_list(browser.page)
+    # Phase 4a: Only call Lightning readiness on Lightning pages (avoid non-SF overhead)
+    try:
+        if "lightning.force.com" in (browser.page.url or "").lower():
+            await ensure_lightning_ready_list(browser.page)
+    except Exception:
+        pass  # Non-critical - continue with discovery
 
     # ═══════════════════════════════════════════════════════════════════════════════
     # Week 8 Phase B: Scope-First Discovery (Generic Container Resolution)

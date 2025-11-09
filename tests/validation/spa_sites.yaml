@@ -1,0 +1,29 @@
+# PACTS v3.1s Validation - SPA Sites
+# Category: SPA (Single Page Applications)
+# Purpose: Verify PACTS handles dynamic SPAs with stealth mode
+# Expected: 100% pass rate, <3s per step (SPAs are slower)
+
+name: spa_sites_validation
+description: Test modern SPA navigation with stealth mode enabled
+
+vars:
+  test_type: spa_validation
+
+steps:
+  # Test 1: React Official Demo
+  - go: https://react.dev
+  - wait: 3000
+  - assert_visible: React
+  - assert_url_contains: react.dev
+
+  # Test 2: Vue.js
+  - go: https://vuejs.org
+  - wait: 3000
+  - assert_visible: Vue
+  - assert_url_contains: vuejs.org
+
+  # Test 3: Angular
+  - go: https://angular.io
+  - wait: 3000
+  - assert_visible: Angular
+  - assert_url_contains: angular.io

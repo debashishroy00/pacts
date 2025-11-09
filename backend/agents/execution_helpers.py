@@ -7,9 +7,96 @@ Each helper encapsulates a specific interaction pattern.
 
 import logging
 from typing import Optional
+from playwright.async_api import Locator, Page
 from ..runtime.patterns import ExecutionPatterns
 
 logger = logging.getLogger(__name__)
+
+
+async def ensure_fillable(page: Page, locator: Locator) -> Locator:
+    """
+    Action-aware targeting: If locator points to a non-editable element (button, div),
+    activate the UI and re-target an actual editable input.
+
+    Critical fix for GitHub/search scenarios where discovery returns button instead of input.
+
+    Args:
+        page: Playwright page
+        locator: Original locator (may be button/non-editable)
+
+    Returns:
+        Editable locator (input/textarea) or raises exception
+
+    Raises:
+        Exception: "element_hidden" if no fillable element found after activation
+    """
+    import re
+
+    try:
+        # Check if already editable
+        is_editable = await locator.is_editable()
+        if is_editable:
+            return locator
+    except Exception:
+        pass  # May not exist yet
+
+    logger.info("[EXEC] ensure_fillable: Element not editable, attempting activation + re-targeting")
+
+    # Step 1: Try common activators for search/header inputs
+    activators = [
+        'button[aria-label="Search"]',
+        'button[aria-label="Toggle navigation"]',  # GitHub hamburger menu
+        'button:has(svg[aria-label="Search"])',     # Icon buttons
+        'label[for="query-builder-test"]',          # GitHub label
+        '[data-action="focus-query-builder"]',      # GitHub data attrs
+    ]
+
+    for sel in activators:
+        try:
+            act = page.locator(sel).first
+            if await act.is_visible():
+                logger.info(f"[EXEC] ensure_fillable: Clicking activator: {sel}")
+                await act.click(timeout=2000)
+                await page.wait_for_timeout(150)
+                break
+        except Exception:
+            continue
+
+    # Step 2: Re-target editable search input (priority order)
+    candidates = [
+        page.get_by_role("searchbox"),                          # Preferred (semantic)
+        page.get_by_placeholder(re.compile(r"search|jump to", re.I)),  # GitHub: "Search or jump to…"
+        page.locator('input[type="search"]'),                   # Standard search input
+        page.locator('input[name="q"]'),                        # Common query param
+        page.locator('input[name="query-builder-test"]'),       # GitHub specific
+        page.locator('input[aria-label*="Search"]'),            # Aria label
+    ]
+
+    for cand in candidates:
+        try:
+            first = cand.first
+            if await first.is_visible() and await first.is_editable():
+                logger.info(f"[EXEC] ensure_fillable: Found editable input via candidate")
+                return first
+        except Exception:
+            continue
+
+    # Step 3: Last-resort hotkey (GitHub focuses search with '/')
+    try:
+        logger.info("[EXEC] ensure_fillable: Trying '/' hotkey to focus search")
+        await page.keyboard.press('/')
+        await page.wait_for_timeout(100)
+
+        sb = page.get_by_role("searchbox").first
+        if await sb.is_visible() and await sb.is_editable():
+            logger.info("[EXEC] ensure_fillable: Hotkey successful")
+            return sb
+    except Exception:
+        pass
+
+    # All strategies failed
+    logger.error("[EXEC] ensure_fillable: No editable input found after activation")
+    raise Exception("element_hidden")
 
 
 async def press_with_fallbacks(browser, locator, selector: str, value: str = "Enter") -> dict:
@@ -117,14 +204,19 @@ async def press_with_fallbacks(browser, locator, selector: str, value: str = "En
 
 async def fill_with_activator(browser, locator, selector: str, value: str) -> dict:
     """
-    Fill input with activator-first pattern.
+    Fill input with activator-first pattern and hidden element activation (v3.1s Phase 4a-B).
 
-    Detects if element is a button/trigger that opens a modal with the actual input.
-    If activator detected:
-    1. Click the activator
-    2. Wait for modal/overlay
-    3. Find actual input field
-    4. Fill the actual input
+    Phase 4a-B Enhancement: When input is hidden, auto-activate the UI first.
+    Common scenarios:
+    - Collapsed search bars (GitHub, StackOverflow)
+    - Click-to-reveal inputs (modern SPAs)
+    - Hidden inputs in dropdowns/popovers
+
+    Execution flow:
+    1. Check if element is visible
+    2. If hidden, try common activators (Search button, icon, etc.)
+    3. If activator pattern detected (modal/overlay triggers), handle that
+    4. Fill the input
 
     Args:
         browser: BrowserClient instance
@@ -141,7 +233,54 @@ async def fill_with_activator(browser, locator, selector: str, value: str) -> di
     import time
     start_ms = time.time() * 1000
 
-    # Detect if this is an activator
+    # Phase 4a-B: Hidden Element Activation (v3.1s Stealth 2.0)
+    # Check if element is hidden and needs activation
+    try:
+        is_visible = await locator.is_visible()
+        if not is_visible:
+            logger.info("[EXEC] Phase 4a-B: Element hidden, attempting activation")
+
+            # Try common activators for search/input fields
+            activator_candidates = [
+                ('button[aria-label*="Search"]', 'aria-label search'),
+                ('button:has-text("Search")', 'text search'),
+                ('[data-test-id*="search"]', 'data-test search'),
+                ('button.search-button', 'class search'),
+                ('[role="button"]:has-text("Search")', 'role search'),
+                ('button[aria-label="Toggle navigation"]', 'hamburger nav'),  # GitHub mobile/small viewports
+                # Icons and UI triggers
+                ('svg[aria-label*="Search"]', 'svg search'),
+                ('.search-icon', 'search icon'),
+                ('[type="search"] + button', 'search adjacent button')
+            ]
+
+            for activator_selector, desc in activator_candidates:
+                try:
+                    activator = browser.page.locator(activator_selector).first
+                    if await activator.is_visible():
+                        logger.info(f"[EXEC] Phase 4a-B: Clicking activator ({desc})")
+                        await activator.click(timeout=2000)
+                        await browser.page.wait_for_timeout(150)  # Small settle time
+
+                        # Re-check if target element is now visible
+                        if await locator.is_visible():
+                            logger.info(f"[EXEC] Phase 4a-B: Activation successful via {desc}")
+                            break
+                except Exception:
+                    continue
+
+            # Final visibility check
+            if not await locator.is_visible():
+                elapsed = int(time.time() * 1000 - start_ms)
+                logger.error(f"[EXEC] Phase 4a-B: Element still hidden after activation attempts, ms={elapsed}")
+                return {"success": False, "strategy": "element_hidden", "ms": elapsed}
+
+            logger.info("[EXEC] Phase 4a-B: Element now visible after activation")
+
+    except Exception as e:
+        logger.debug(f"[EXEC] Phase 4a-B: Visibility check failed: {e}")
+
+    # Original activator pattern detection (modal/overlay triggers)
     try:
         element_role = await locator.get_attribute("role")
         element_type = await locator.get_attribute("type")
@@ -175,8 +314,10 @@ async def fill_with_activator(browser, locator, selector: str, value: str) -> di
         logger.debug(f"[EXEC] Activator detection failed: {e}")
 
     # Normal fill (not an activator, or activator pattern failed)
+    # Apply ensure_fillable for action-aware targeting (GitHub button→input fix)
     try:
-        await locator.fill(value, timeout=5000)
+        target = await ensure_fillable(browser.page, locator)
+        await target.fill(value, timeout=5000)
         elapsed = int(time.time() * 1000 - start_ms)
         logger.info(f"[EXEC] strategy=direct_fill ms={elapsed}")
         return {"success": True, "strategy": "direct_fill", "ms": elapsed}

@@ -2,11 +2,11 @@
 PACTS Generated Test
 ====================
 Requirement ID: github_search
-Generated: 2025-11-02 17:54:36
+Generated: 2025-11-09 02:11:28
 Verdict: PASS
 
 Discovery Strategies Used:
-  - placeholder
+  - aria_label_scoped
 
 """
 
@@ -34,13 +34,13 @@ async def test_github_search():
         await page.goto("https://github.com")
 
         # Step 1: FILL Search
-        # Selector: [placeholder*="Search or jump to..."]
-        # Strategy: placeholder, Confidence: 0.88
-        await page.locator("[placeholder*="Search or jump to..."]").fill("playwright")
+        # Selector: input[name="query-builder-test"]
+        # Strategy: aria_label_scoped, Confidence: 0.98
+        await page.locator("input[name="query-builder-test"]").fill("playwright")
         # Step 2: PRESS Search
-        # Selector: [placeholder*="Search or jump to..."]
-        # Strategy: placeholder, Confidence: 0.88
-        await page.locator("[placeholder*="Search or jump to..."]").press("Enter")
+        # Selector: input[name="query-builder-test"]
+        # Strategy: aria_label_scoped, Confidence: 0.98
+        await page.locator("input[name="query-builder-test"]").press("Enter")
         await browser.close()
 
 

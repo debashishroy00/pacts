@@ -2,12 +2,12 @@
 PACTS Generated Test
 ====================
 Requirement ID: stackoverflow_search
-Generated: 2025-11-01 00:44:28
+Generated: 2025-11-09 00:59:45
 Verdict: FAIL
 
 Discovery Strategies Used:
+  - aria_label_fuzzy
   - failed
-  - placeholder
 
 """
 
@@ -21,7 +21,7 @@ async def test_stackoverflow_search():
 
     Test Details:
     - URL: https://stackoverflow.com
-    - Steps: 4
+    - Steps: 5
     - Verdict: fail
     
 
@@ -35,13 +35,13 @@ async def test_stackoverflow_search():
         await page.goto("https://stackoverflow.com")
 
         # Step 1: FILL Search
-        # Selector: [name="q"]
-        # Strategy: placeholder, Confidence: 0.88
-        await page.locator("[name="q"]").fill("python async await")
+        # Selector: input[aria-label="Search"]
+        # Strategy: aria_label_fuzzy, Confidence: 0.96
+        await page.locator("input[aria-label="Search"]").fill("python async await")
         # Step 2: PRESS Search
-        # Selector: [name="q"]
-        # Strategy: placeholder, Confidence: 0.88
-        await page.locator("[name="q"]").press("Enter")
+        # Selector: input[aria-label="Search"]
+        # Strategy: aria_label_fuzzy, Confidence: 0.96
+        await page.locator("input[aria-label="Search"]").press("Enter")
         # Step 3: CLICK Newest
         # Selector: DISCOVERY_FAILED
         # Strategy: failed, Confidence: 0.0
@@ -50,6 +50,10 @@ async def test_stackoverflow_search():
         # Selector: 
         # Strategy: , Confidence: 
         await page.locator("").click()
+        # Step 5: CHECK Results
+        # Selector: 
+        # Strategy: , Confidence: 
+        await page.locator("").check()
         await browser.close()
 
 

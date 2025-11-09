@@ -2,11 +2,11 @@
 PACTS Generated Test
 ====================
 Requirement ID: amazon_search
-Generated: 2025-11-02 17:55:10
+Generated: 2025-11-09 02:12:32
 Verdict: PASS
 
 Discovery Strategies Used:
-  - placeholder
+  - name_attr_fuzzy
 
 """
 
@@ -34,13 +34,13 @@ async def test_amazon_search():
         await page.goto("https://www.amazon.com")
 
         # Step 1: FILL Search
-        # Selector: #twotabsearchtextbox
-        # Strategy: placeholder, Confidence: 0.88
-        await page.locator("#twotabsearchtextbox").fill("laptop")
+        # Selector: form[name="site-search"]
+        # Strategy: name_attr_fuzzy, Confidence: 0.92
+        await page.locator("form[name="site-search"]").fill("laptop")
         # Step 2: PRESS Search
-        # Selector: #twotabsearchtextbox
-        # Strategy: placeholder, Confidence: 0.88
-        await page.locator("#twotabsearchtextbox").press("Enter")
+        # Selector: form[name="site-search"]
+        # Strategy: name_attr_fuzzy, Confidence: 0.92
+        await page.locator("form[name="site-search"]").press("Enter")
         await browser.close()
 
 

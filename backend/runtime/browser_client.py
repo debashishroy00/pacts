@@ -52,9 +52,10 @@ class BrowserClient:
     def __init__(self):
         self._pw = None
         self.browser = None
+        self.context = None  # type: ignore
         self.page = None  # type: ignore
 
-    async def start(self, headless: bool = True, project: str = "chromium", slow_mo: int = 0, storage_state: Optional[str] = None):
+    async def start(self, headless: bool = True, project: str = "chromium", slow_mo: int = 0, storage_state: Optional[str] = None, stealth: bool = None):
         """
         Start the browser instance.
 
@@ -63,27 +64,47 @@ class BrowserClient:
             project: Browser type: chromium, firefox, webkit (default: chromium)
             slow_mo: Slow down operations by specified milliseconds (default: 0)
             storage_state: Path to saved auth state JSON file (default: None)
+            stealth: Enable stealth mode (default: read from PACTS_STEALTH env var)
         """
-        from playwright.async_api import async_playwright
-        self._pw = await async_playwright().start()
-        if project == "chromium":
-            self.browser = await self._pw.chromium.launch(headless=headless, slow_mo=slow_mo)
-        elif project == "firefox":
-            self.browser = await self._pw.firefox.launch(headless=headless, slow_mo=slow_mo)
-        else:
-            self.browser = await self._pw.webkit.launch(headless=headless, slow_mo=slow_mo)
+        import os
 
-        # Create new page with optional storage state (cookies/localStorage)
-        if storage_state:
-            import os
-            if os.path.exists(storage_state):
-                self.page = await self.browser.new_page(storage_state=storage_state)
-                print(f"[AUTH] ✅ Restored session from {storage_state}")
-            else:
-                self.page = await self.browser.new_page()
-                print(f"[AUTH] ⚠️ Storage state file not found: {storage_state}")
+        # Determine if stealth mode should be used
+        use_stealth = stealth if stealth is not None else (os.getenv("PACTS_STEALTH", "true").lower() == "true")
+
+        if use_stealth:
+            # Use stealth launcher (v3.1s)
+            from .launch_stealth import launch_stealth_browser
+            self.browser, self.context, self.page = await launch_stealth_browser(
+                headless=headless,
+                browser_type=project,
+                slow_mo=slow_mo,
+                storage_state=storage_state
+            )
+            print(f"[PACTS] 🥷 Stealth mode enabled (headless={headless})")
         else:
-            self.page = await self.browser.new_page()
+            # Original launcher (legacy)
+            from playwright.async_api import async_playwright
+            self._pw = await async_playwright().start()
+            if project == "chromium":
+                self.browser = await self._pw.chromium.launch(headless=headless, slow_mo=slow_mo)
+            elif project == "firefox":
+                self.browser = await self._pw.firefox.launch(headless=headless, slow_mo=slow_mo)
+            else:
+                self.browser = await self._pw.webkit.launch(headless=headless, slow_mo=slow_mo)
+
+            # Create new page with optional storage state (cookies/localStorage)
+            if storage_state:
+                if os.path.exists(storage_state):
+                    self.context = await self.browser.new_context(storage_state=storage_state)
+                    self.page = await self.context.new_page()
+                    print(f"[AUTH] ✅ Restored session from {storage_state}")
+                else:
+                    self.context = await self.browser.new_context()
+                    self.page = await self.context.new_page()
+                    print(f"[AUTH] ⚠️ Storage state file not found: {storage_state}")
+            else:
+                self.context = await self.browser.new_context()
+                self.page = await self.context.new_page()
 
     async def goto(self, url: str, wait: str = "domcontentloaded"):
         assert self.page, "Call start() first"
@@ -98,10 +119,10 @@ class BrowserClient:
 
         This allows reusing authentication across test runs without re-login.
         """
-        assert self.page, "Call start() first"
+        assert self.context, "Call start() first"
         import os
         os.makedirs(os.path.dirname(path), exist_ok=True)
-        await self.page.context.storage_state(path=path)
+        await self.context.storage_state(path=path)
         print(f"[AUTH] 💾 Saved session to {path}")
 
     async def query(self, selector: str):

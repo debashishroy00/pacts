@@ -2,11 +2,11 @@
 PACTS Generated Test
 ====================
 Requirement ID: salesforce_create_contact.txt
-Generated: 2025-11-08 04:25:49
+Generated: 2025-11-09 02:07:20
 Verdict: PASS
 
 Discovery Strategies Used:
-  - label_for
+  - name_attr
   - name_attr_fuzzy
   - placeholder_attr
   - role_name
@@ -62,13 +62,13 @@ async def test_salesforce_create_contact_txt():
         # Strategy: name_attr_fuzzy, Confidence: 0.92
         await page.locator("input[name="lastName"]").fill("Seth")
         # Step 7: FILL Email
-        # Selector: input#input-483
-        # Strategy: label_for, Confidence: 0.86
-        await page.locator("input#input-483").fill("test.contact.1762575807@example.com")
+        # Selector: input[name="Email"]
+        # Strategy: name_attr, Confidence: 0.94
+        await page.locator("input[name="Email"]").fill("test.contact.1762653914@example.com")
         # Step 8: FILL Phone
-        # Selector: input#input-436
-        # Strategy: label_for, Confidence: 0.86
-        await page.locator("input#input-436").fill("555-1234")
+        # Selector: input[name="Phone"]
+        # Strategy: name_attr, Confidence: 0.94
+        await page.locator("input[name="Phone"]").fill("555-1234")
         # Step 9: CLICK Save
         # Selector: role=button[name*="save"i] >> nth=0
         # Strategy: role_name_disambiguated, Confidence: 0.95

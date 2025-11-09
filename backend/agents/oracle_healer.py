@@ -191,9 +191,27 @@ async def run(state: RunState) -> RunState:
 
             # Week 5: Detect no-progress loop (same selector returned)
             if new_selector == selector:
-                print(f"[HEAL] ⚠️ No progress: new selector identical to old ({new_selector[:60]})")
+                logger.warning(f"[HEAL] ⚠️ No progress: identical selector ({new_selector[:60]})")
                 heal_event["actions"].append("no_progress_same_selector")
-                # Continue anyway to consume heal round and eventually hit max limit
+
+                # Phase 4a: Escalate for fill actions (try ensure_fillable activation)
+                if intent.get("action") == "fill":
+                    try:
+                        from .execution_helpers import ensure_fillable
+                        logger.info("[HEAL] Escalating via ensure_fillable (activation/re-targeting)")
+                        locator = browser.page.locator(selector).first
+                        upgraded = await ensure_fillable(browser.page, locator)
+                        # If ensure_fillable succeeds, it returns a new locator - extract selector
+                        # For now, mark as escalated and let execution handle it
+                        heal_event["actions"].append("escalation_ensure_fillable")
+                    except Exception as e:
+                        logger.debug(f"[HEAL] ensure_fillable escalation failed: {e}")
+                        # Bail - no point retrying identical selector
+                        return state
+                else:
+                    # Non-fill actions: bail immediately on identical selector
+                    logger.warning("[HEAL] Identical selector, no escalation available - bailing")
+                    return state
 
             reprobe_strategy = discovered["meta"]["strategy"]
             heal_event["actions"].append(f"reprobe:{reprobe_strategy}")
